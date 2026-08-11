@@ -1,5 +1,6 @@
 package com.example.secondshelf.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -9,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Visibility
@@ -27,26 +29,50 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.secondshelf.ui.AuthUiState
+import com.example.secondshelf.ui.AuthViewModel
 import com.example.secondshelf.ui.theme.DangerRed
 import com.example.secondshelf.ui.theme.SuccessGreen
 
 @Composable
 fun SetPasswordScreen(
-    userName: String = "",
+    viewModel: AuthViewModel,
+    userName: String  = "",
+    userEmail: String = "",
+    userPhone: String = "",
     onNavigateToHome: () -> Unit,
     onNavigateBack: () -> Unit
 ) {
-    var password by remember { mutableStateOf("") }
+    var password        by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
+    var passwordVisible        by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
     var agreeToTerms by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
 
-    val hasMinLength = password.length >= 8
-    val hasUppercase = password.any { it.isUpperCase() }
-    val hasNumber = password.any { it.isDigit() }
-    val allRequirementsMet = hasMinLength && hasUppercase && hasNumber
+    val uiState   by viewModel.uiState.collectAsState()
+    val isLoading = uiState is AuthUiState.Loading
+    val apiError  = (uiState as? AuthUiState.Error)?.message ?: ""
+
+    // ── Password requirement checks ───────────────────────────────────────────
+    val hasMinLength   = password.length >= 8
+    val hasUppercase   = password.any { it.isUpperCase() }
+    val hasDigit       = password.any { it.isDigit() }
+    val hasSpecialChar = password.any { !it.isLetterOrDigit() }
+    val allMet         = hasMinLength && hasUppercase && hasDigit && hasSpecialChar
+
+    // Navigate to home on successful registration
+    LaunchedEffect(uiState) {
+        if (uiState is AuthUiState.Success) {
+            viewModel.resetState()
+            onNavigateToHome()
+        }
+    }
+
+    // Reset API error when user starts typing
+    val onPasswordChange: (String) -> Unit = {
+        password = it
+        if (uiState is AuthUiState.Error) viewModel.resetState()
+    }
 
     Column(
         modifier = Modifier
@@ -64,11 +90,8 @@ fun SetPasswordScreen(
                 .size(40.dp)
                 .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
         ) {
-            Icon(
-                Icons.Default.ArrowBack,
-                contentDescription = "Back",
-                tint = MaterialTheme.colorScheme.onBackground
-            )
+            Icon(Icons.Default.ArrowBack, contentDescription = "Back",
+                tint = MaterialTheme.colorScheme.onBackground)
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -80,25 +103,42 @@ fun SetPasswordScreen(
             color = MaterialTheme.colorScheme.onBackground
         )
         Text(
-            text = if (userName.isNotBlank()) "Almost done, $userName! Create a strong password." else "Create a strong password for your account.",
+            text = if (userName.isNotBlank()) "Almost done, $userName! Create a strong password."
+                   else "Create a strong password for your account.",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.secondary,
             modifier = Modifier.padding(top = 6.dp, bottom = 28.dp)
         )
 
-        // New Password
-        Text(
-            text = "New Password",
-            style = MaterialTheme.typography.labelLarge,
+        // ── API error card ────────────────────────────────────────────────────
+        AnimatedVisibility(visible = apiError.isNotEmpty()) {
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+            ) {
+                Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
+                    Icon(Icons.Default.ErrorOutline, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(apiError, color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+
+        // ── Password field ────────────────────────────────────────────────────
+        Text("New Password", style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(bottom = 6.dp)
-        )
+            modifier = Modifier.padding(bottom = 6.dp))
         OutlinedTextField(
             value = password,
-            onValueChange = { password = it; errorMessage = "" },
+            onValueChange = onPasswordChange,
             placeholder = { Text("Enter a strong password") },
             leadingIcon = {
-                Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Default.Lock, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary)
             },
             trailingIcon = {
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -114,6 +154,7 @@ fun SetPasswordScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),
             singleLine = true,
+            enabled = !isLoading,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = Color(0xFFE5E7EB)
@@ -122,7 +163,7 @@ fun SetPasswordScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Password requirements card
+        // ── Requirements card ─────────────────────────────────────────────────
         Surface(
             color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(12.dp),
@@ -132,32 +173,29 @@ fun SetPasswordScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    "Password requirements",
+                Text("Password requirements",
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                PasswordRequirement("At least 8 characters", hasMinLength)
-                PasswordRequirement("At least one uppercase letter (A-Z)", hasUppercase)
-                PasswordRequirement("At least one number (0-9)", hasNumber)
+                    color = MaterialTheme.colorScheme.secondary)
+                PasswordRequirement("At least 8 characters",              hasMinLength)
+                PasswordRequirement("At least one uppercase letter (A–Z)", hasUppercase)
+                PasswordRequirement("At least one digit (0–9)",            hasDigit)
+                PasswordRequirement("At least one special character (!@#\$…)", hasSpecialChar)
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Confirm Password
-        Text(
-            text = "Confirm Password",
-            style = MaterialTheme.typography.labelLarge,
+        // ── Confirm password ──────────────────────────────────────────────────
+        Text("Confirm Password", style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(bottom = 6.dp)
-        )
+            modifier = Modifier.padding(bottom = 6.dp))
         OutlinedTextField(
             value = confirmPassword,
-            onValueChange = { confirmPassword = it; errorMessage = "" },
+            onValueChange = { confirmPassword = it },
             placeholder = { Text("Re-enter your password") },
             leadingIcon = {
-                Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Default.Lock, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary)
             },
             trailingIcon = {
                 IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
@@ -169,37 +207,25 @@ fun SetPasswordScreen(
                 }
             },
             visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            isError = errorMessage.isNotEmpty(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),
             singleLine = true,
+            enabled = !isLoading,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = Color(0xFFE5E7EB)
             )
         )
 
-        // Error
-        if (errorMessage.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                errorMessage,
-                color = DangerRed,
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
-
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Terms checkbox
-        Row(
-            verticalAlignment = Alignment.Top,
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        // ── Terms checkbox ────────────────────────────────────────────────────
+        Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
             Checkbox(
                 checked = agreeToTerms,
                 onCheckedChange = { agreeToTerms = it },
+                enabled = !isLoading,
                 colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
             )
             Spacer(modifier = Modifier.width(4.dp))
@@ -223,23 +249,43 @@ fun SetPasswordScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Create account button
+        // ── Create account button ─────────────────────────────────────────────
+        var localError by remember { mutableStateOf("") }
+
+        AnimatedVisibility(visible = localError.isNotEmpty()) {
+            Text(localError, color = DangerRed,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(bottom = 8.dp))
+        }
+
         Button(
             onClick = {
-                when {
-                    !allRequirementsMet -> errorMessage = "Password does not meet the requirements above"
-                    password != confirmPassword -> errorMessage = "Passwords do not match"
-                    !agreeToTerms -> errorMessage = "Please agree to the Terms of Service to continue"
-                    else -> onNavigateToHome()
+                localError = when {
+                    !allMet           -> "Password does not meet all requirements above."
+                    password != confirmPassword -> "Passwords do not match."
+                    !agreeToTerms     -> "Please agree to the Terms of Service to continue."
+                    else              -> ""
+                }
+                if (localError.isEmpty()) {
+                    viewModel.signUp(
+                        email    = userEmail,
+                        password = password,
+                        fullName = userName,
+                        phone    = userPhone
+                    )
                 }
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
+            modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+            enabled = !isLoading
         ) {
-            Text("Create Account →", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(22.dp),
+                    color = Color.White, strokeWidth = 2.5.dp)
+            } else {
+                Text("Create Account →", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
         }
 
         Spacer(modifier = Modifier.height(32.dp))

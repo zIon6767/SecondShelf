@@ -1,5 +1,6 @@
 package com.example.secondshelf.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,8 +10,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
@@ -18,29 +19,43 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.secondshelf.ui.AuthUiState
+import com.example.secondshelf.ui.AuthViewModel
 
-private fun isValidSchoolEmail(email: String): Boolean {
-    val schoolDomains = listOf(
-        ".edu", "edu.my", "edu.sg", "edu.au", "edu.ph",
-        "ac.uk", "ac.in", "ac.nz", "ac.za"
-    )
-    return email.contains("@") && schoolDomains.any { email.lowercase().contains(it) }
-}
+private fun isValidEmail(email: String): Boolean =
+    email.contains("@") && email.contains(".")
 
 @Composable
 fun RegisterScreen(
-    onNavigateToSetPassword: (name: String, email: String) -> Unit,
-    onNavigateToLogin: () -> Unit
+    viewModel: AuthViewModel,
+    onNavigateToSetPassword: (name: String, email: String, phone: String) -> Unit,
+    onNavigateToLogin: () -> Unit,
+    onNavigateToHome: () -> Unit
 ) {
-    var fullName by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
-    var nameError by remember { mutableStateOf("") }
+    var fullName   by remember { mutableStateOf("") }
+    var email      by remember { mutableStateOf("") }
+    var phone      by remember { mutableStateOf("") }
+    var nameError  by remember { mutableStateOf("") }
     var emailError by remember { mutableStateOf("") }
+
+    val uiState   by viewModel.uiState.collectAsState()
+    val isLoading = uiState is AuthUiState.Loading
+    val apiError  = (uiState as? AuthUiState.Error)?.message ?: ""
+
+    val context = LocalContext.current
+
+    // Handle Google Sign-In success from this screen
+    LaunchedEffect(uiState) {
+        if (uiState is AuthUiState.Success) {
+            viewModel.resetState()
+            onNavigateToHome()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -52,7 +67,7 @@ fun RegisterScreen(
     ) {
         Spacer(modifier = Modifier.height(56.dp))
 
-        // Header
+        // ── Header ────────────────────────────────────────────────────────────
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = "Create Account",
@@ -64,7 +79,7 @@ fun RegisterScreen(
                 text = "Join your campus marketplace today.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.padding(top = 6.dp, bottom = 28.dp)
+                modifier = Modifier.padding(top = 6.dp, bottom = 24.dp)
             )
         }
 
@@ -84,22 +99,37 @@ fun RegisterScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // Full Name
+        // ── API error card ────────────────────────────────────────────────────
+        AnimatedVisibility(visible = apiError.isNotEmpty()) {
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+            ) {
+                Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
+                    Icon(Icons.Default.ErrorOutline, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(apiError, color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+
+        // ── Full Name ─────────────────────────────────────────────────────────
         Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = "Full Name",
-                style = MaterialTheme.typography.labelLarge,
+            Text("Full Name", style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(bottom = 6.dp)
-            )
+                modifier = Modifier.padding(bottom = 6.dp))
             OutlinedTextField(
                 value = fullName,
                 onValueChange = { fullName = it; nameError = "" },
                 placeholder = { Text("Enter your full name") },
                 leadingIcon = {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Default.Person, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary)
                 },
                 isError = nameError.isNotEmpty(),
                 supportingText = if (nameError.isNotEmpty()) {
@@ -108,6 +138,7 @@ fun RegisterScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
                 singleLine = true,
+                enabled = !isLoading,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = Color(0xFFE5E7EB)
@@ -117,31 +148,28 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Email
+        // ── Email ─────────────────────────────────────────────────────────────
         Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = "School Email",
-                style = MaterialTheme.typography.labelLarge,
+            Text("Email", style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(bottom = 6.dp)
-            )
+                modifier = Modifier.padding(bottom = 6.dp))
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it; emailError = "" },
-                placeholder = { Text("name@university.edu.my") },
+                placeholder = { Text("Enter your email address") },
                 leadingIcon = {
-                    Icon(Icons.Default.Email, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Default.Email, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary)
                 },
                 isError = emailError.isNotEmpty(),
                 supportingText = if (emailError.isNotEmpty()) {
                     { Text(emailError, color = MaterialTheme.colorScheme.error) }
-                } else {
-                    { Text("Only university/school emails are accepted", color = MaterialTheme.colorScheme.secondary) }
-                },
+                } else null,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
                 singleLine = true,
+                enabled = !isLoading,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = Color(0xFFE5E7EB)
@@ -151,25 +179,24 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Phone
+        // ── Phone ─────────────────────────────────────────────────────────────
         Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = "Phone Number",
-                style = MaterialTheme.typography.labelLarge,
+            Text("Phone Number", style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(bottom = 6.dp)
-            )
+                modifier = Modifier.padding(bottom = 6.dp))
             OutlinedTextField(
                 value = phone,
                 onValueChange = { phone = it },
                 placeholder = { Text("e.g. 01X-XXXXXXXX") },
                 leadingIcon = {
-                    Icon(Icons.Default.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Default.Phone, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary)
                 },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
                 singleLine = true,
+                enabled = !isLoading,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = Color(0xFFE5E7EB)
@@ -179,47 +206,76 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // Continue button
+        // ── Continue button ───────────────────────────────────────────────────
         Button(
             onClick = {
                 var valid = true
                 if (fullName.isBlank()) {
-                    nameError = "Please enter your full name"
-                    valid = false
+                    nameError = "Please enter your full name"; valid = false
                 }
-                if (!isValidSchoolEmail(email)) {
-                    emailError = "Please use a valid university/school email"
-                    valid = false
+                if (!isValidEmail(email)) {
+                    emailError = "Please enter a valid email address"; valid = false
                 }
-                if (valid) onNavigateToSetPassword(fullName.trim(), email.trim())
+                if (valid) onNavigateToSetPassword(fullName.trim(), email.trim(), phone.trim())
             },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
             shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+            enabled = !isLoading
         ) {
             Text("Continue", fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
 
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // ── Divider ───────────────────────────────────────────────────────────
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Divider(modifier = Modifier.weight(1f), color = Color(0xFFE5E7EB))
+            Text("  or sign up with  ",
+                color = MaterialTheme.colorScheme.secondary,
+                style = MaterialTheme.typography.bodyMedium)
+            Divider(modifier = Modifier.weight(1f), color = Color(0xFFE5E7EB))
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // ── Google Sign-Up button ─────────────────────────────────────────────
+        OutlinedButton(
+            onClick = { viewModel.signInWithGoogle(context) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.onBackground),
+            border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.5.dp),
+            enabled = !isLoading
+        ) {
+            Text("G", fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF4285F4), fontSize = 18.sp)
+            Spacer(modifier = Modifier.width(10.dp))
+            Text("Sign up with Google", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
+        // ── Login link ────────────────────────────────────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "Already have an account? ",
+            Text("Already have an account? ",
                 color = MaterialTheme.colorScheme.secondary,
-                style = MaterialTheme.typography.bodyMedium
-            )
+                style = MaterialTheme.typography.bodyMedium)
             Text(
                 "Sign In",
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.clickable { onNavigateToLogin() }
+                modifier = Modifier.clickable(enabled = !isLoading) { onNavigateToLogin() }
             )
         }
 

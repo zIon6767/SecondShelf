@@ -1,0 +1,156 @@
+package com.example.secondshelf.ui
+
+import android.content.Context
+import android.net.Uri
+import androidx.browser.customtabs.CustomTabsIntent
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.secondshelf.BuildConfig
+import com.example.secondshelf.supabase
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.builtin.Email
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+
+// ── UI State ──────────────────────────────────────────────────────────────────
+
+sealed class AuthUiState {
+    object Idle    : AuthUiState()
+    object Loading : AuthUiState()
+    object Success : AuthUiState()
+    data class Error(val message: String) : AuthUiState()
+}
+
+// ── ViewModel ─────────────────────────────────────────────────────────────────
+
+class AuthViewModel : ViewModel() {
+
+    private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
+    val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
+
+    // ── Session check ─────────────────────────────────────────────────────────
+
+    /** Returns true if a valid Supabase session already exists (persisted login). */
+    fun isLoggedIn(): Boolean = supabase.auth.currentSessionOrNull() != null
+
+    // ── Email / Password Auth ─────────────────────────────────────────────────
+
+    /**
+     * Sign in with email + password.
+     * Surfaces a clear "not registered" message when credentials are unrecognised.
+     */
+    fun signIn(email: String, password: String) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            runCatching {
+                supabase.auth.signInWith(Email) {
+                    this.email    = email
+                    this.password = password
+                }
+            }.onSuccess {
+                _uiState.value = AuthUiState.Success
+            }.onFailure { e ->
+                _uiState.value = AuthUiState.Error(mapSignInError(e))
+            }
+        }
+    }
+
+    /**
+     * Register a new account with email + password + profile metadata.
+     * Called from SetPasswordScreen after the user completes the two-step register flow.
+     */
+    fun signUp(email: String, password: String, fullName: String, phone: String) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            runCatching {
+                supabase.auth.signUpWith(Email) {
+                    this.email    = email
+                    this.password = password
+                    data = buildJsonObject {
+                        put("full_name", fullName)
+                        put("phone",     phone)
+                    }
+                }
+            }.onSuccess {
+                _uiState.value = AuthUiState.Success
+            }.onFailure { e ->
+                _uiState.value = AuthUiState.Error(mapSignUpError(e))
+            }
+        }
+    }
+
+    // ── Google OAuth (Custom Tabs) ────────────────────────────────────────────
+
+    /**
+     * Opens Supabase Google OAuth in a Chrome Custom Tab.
+     * The OS redirects back to `secondshelf://auth-callback` when done,
+     * which is handled in MainActivity → handleAuthCallback().
+     *
+     * Pre-requisite: Google provider must be enabled in the Supabase dashboard
+     * (Authentication → Providers → Google) with a valid Client ID + Secret.
+     */
+    fun signInWithGoogle(context: Context) {
+        val oauthUrl = "${BuildConfig.SUPABASE_URL}/auth/v1/authorize" +
+            "?provider=google" +
+            "&redirect_to=secondshelf%3A%2F%2Fauth-callback"
+        CustomTabsIntent.Builder()
+            .setShowTitle(true)
+            .build()
+            .launchUrl(context, Uri.parse(oauthUrl))
+    }
+
+    /**
+     * Called when the app receives the OAuth redirect deep-link
+     * (secondshelf://auth-callback). Exchanges the tokens for a session.
+     */
+    fun handleAuthCallback(uri: Uri) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            runCatching {
+                supabase.auth.retrieveSessionFromUrl(uri.toString())
+            }.onSuccess {
+                _uiState.value = AuthUiState.Success
+            }.onFailure {
+                _uiState.value = AuthUiState.Error("Google sign-in failed. Please try again.")
+            }
+        }
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /** Resets state back to Idle (call after navigating away on success). */
+    fun resetState() { _uiState.value = AuthUiState.Idle }
+
+    private fun mapSignInError(e: Throwable): String {
+        val msg = e.message.orEmpty().lowercase()
+        return when {
+            "invalid_credentials" in msg || "invalid login credentials" in msg ->
+                "No account found with this email, or the password is incorrect.\n" +
+                "Don't have an account yet? Please tap Sign Up below."
+            "email not confirmed" in msg ->
+                "Please verify your email address before logging in. Check your inbox."
+            "too many requests" in msg ->
+                "Too many login attempts. Please wait a moment and try again."
+            else ->
+                "Login failed. Please check your connection and try again."
+        }
+    }
+
+    private fun mapSignUpError(e: Throwable): String {
+        val msg = e.message.orEmpty().lowercase()
+        return when {
+            "already registered" in msg || "user already" in msg ->
+                "An account with this email already exists. Please log in instead."
+            "password should be" in msg ->
+                "Password is too weak. Please use a stronger password."
+            "invalid email" in msg || "unable to validate" in msg ->
+                "Invalid email address. Please check and try again."
+            else ->
+                "Registration failed. Please check your connection and try again."
+        }
+    }
+}

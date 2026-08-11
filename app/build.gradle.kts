@@ -1,6 +1,16 @@
+import java.util.Properties
+
+// Read Supabase credentials from local.properties (git-ignored)
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(localPropertiesFile.inputStream())
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
@@ -18,6 +28,10 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // Inject Supabase credentials into BuildConfig
+        buildConfigField("String", "SUPABASE_URL",  "\"${localProperties["SUPABASE_URL"]  ?: ""}\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProperties["SUPABASE_ANON_KEY"] ?: ""}\"")
     }
 
     buildTypes {
@@ -30,17 +44,15 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
+        buildConfig = true
     }
     packaging {
         resources {
@@ -60,4 +72,18 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.material.icons.extended)
+
+    // Supabase Auth + Database
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.supabase.auth)
+    implementation(libs.supabase.postgrest)
+
+    // Ktor HTTP engine (required by Supabase SDK)
+    implementation(libs.ktor.client.android)
+
+    // ViewModel in Compose
+    implementation(libs.lifecycle.viewmodel.compose)
+
+    // AndroidX Browser – Custom Tabs for Google OAuth redirect
+    implementation(libs.androidx.browser)
 }

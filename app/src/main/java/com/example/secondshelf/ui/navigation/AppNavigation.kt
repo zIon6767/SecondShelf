@@ -2,11 +2,14 @@ package com.example.secondshelf.ui.navigation
 
 import android.net.Uri
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.secondshelf.ui.AuthViewModel
 import com.example.secondshelf.ui.screens.HomeScreen
 import com.example.secondshelf.ui.screens.LoginScreen
 import com.example.secondshelf.ui.screens.NotificationsScreen
@@ -17,8 +20,25 @@ import com.example.secondshelf.ui.screens.SettingsScreen
 import com.example.secondshelf.ui.screens.SplashScreen
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(authCallbackUri: Uri? = null) {
     val navController = rememberNavController()
+
+    // One shared AuthViewModel for all auth screens (Activity-scoped)
+    val authViewModel: AuthViewModel = viewModel()
+
+    // Handle Google OAuth deep-link redirect forwarded from MainActivity
+    LaunchedEffect(authCallbackUri) {
+        authCallbackUri?.let { authViewModel.handleAuthCallback(it) }
+    }
+
+    // Auto-login: skip to Home if a valid session already exists
+    LaunchedEffect(Unit) {
+        if (authViewModel.isLoggedIn()) {
+            navController.navigate("home") {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
 
     NavHost(navController = navController, startDestination = "splash") {
 
@@ -44,12 +64,13 @@ fun AppNavigation() {
             )
         }
 
-        // ── Login ───────────────────────────────────────────────────────
+        // ── Login ────────────────────────────────────────────────────────
         composable("login") {
             LoginScreen(
+                viewModel = authViewModel,
                 onNavigateToHome = {
                     navController.navigate("home") {
-                        popUpTo("login") { inclusive = true }
+                        popUpTo(0) { inclusive = true }
                     }
                 },
                 onNavigateToRegister = {
@@ -58,34 +79,49 @@ fun AppNavigation() {
             )
         }
 
-        // ── Register ────────────────────────────────────────────────────
+        // ── Register ─────────────────────────────────────────────────────
         composable("register") {
             RegisterScreen(
-                onNavigateToSetPassword = { name, email ->
-                    val encodedName = Uri.encode(name)
+                viewModel = authViewModel,
+                onNavigateToSetPassword = { name, email, phone ->
+                    val encodedName  = Uri.encode(name)
                     val encodedEmail = Uri.encode(email)
-                    navController.navigate("set_password?name=$encodedName&email=$encodedEmail")
+                    val encodedPhone = Uri.encode(phone)
+                    navController.navigate(
+                        "set_password?name=$encodedName&email=$encodedEmail&phone=$encodedPhone"
+                    )
                 },
                 onNavigateToLogin = {
                     navController.popBackStack()
+                },
+                onNavigateToHome = {
+                    navController.navigate("home") {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             )
         }
 
         // ── Set Password ─────────────────────────────────────────────────
         composable(
-            route = "set_password?name={name}&email={email}",
+            route = "set_password?name={name}&email={email}&phone={phone}",
             arguments = listOf(
-                navArgument("name") { type = NavType.StringType; defaultValue = "" },
-                navArgument("email") { type = NavType.StringType; defaultValue = "" }
+                navArgument("name")  { type = NavType.StringType; defaultValue = "" },
+                navArgument("email") { type = NavType.StringType; defaultValue = "" },
+                navArgument("phone") { type = NavType.StringType; defaultValue = "" }
             )
         ) { backStackEntry ->
-            val name = backStackEntry.arguments?.getString("name") ?: ""
+            val name  = backStackEntry.arguments?.getString("name")  ?: ""
+            val email = backStackEntry.arguments?.getString("email") ?: ""
+            val phone = backStackEntry.arguments?.getString("phone") ?: ""
             SetPasswordScreen(
-                userName = name,
+                viewModel = authViewModel,
+                userName  = name,
+                userEmail = email,
+                userPhone = phone,
                 onNavigateToHome = {
                     navController.navigate("home") {
-                        popUpTo("login") { inclusive = true }
+                        popUpTo(0) { inclusive = true }
                     }
                 },
                 onNavigateBack = {
@@ -94,7 +130,7 @@ fun AppNavigation() {
             )
         }
 
-        // ── Home (with bottom nav) ───────────────────────────────────────
+        // ── Home (with bottom nav) ────────────────────────────────────────
         composable("home") {
             HomeScreen(
                 onNavigateToSettings = {
@@ -106,7 +142,7 @@ fun AppNavigation() {
             )
         }
 
-        // ── Settings ─────────────────────────────────────────────────────
+        // ── Settings ──────────────────────────────────────────────────────
         composable("settings") {
             SettingsScreen(
                 onNavigateBack = {
@@ -115,7 +151,7 @@ fun AppNavigation() {
             )
         }
 
-        // ── Notifications ────────────────────────────────────────────────
+        // ── Notifications ─────────────────────────────────────────────────
         composable("notifications") {
             NotificationsScreen(
                 onNavigateBack = {
