@@ -13,7 +13,7 @@ data class ListingItem(
 )
 
 val mockListings = listOf(
-    ListingItem(1, "Engineering Calculus Textbook", "RM 35", "Books", "Like New", "Ahmad R.", Color(0xFFE8F0FE)),
+    ListingItem(1, "Engineering Calculus Textbook", "RM 40", "Books", "Like New", "Ahmad R.", Color(0xFFE8F0FE)),
     ListingItem(2, "Scientific Calculator", "RM 45", "Electronics", "Good", "Sarah L.", Color(0xFFFFF3E0)),
     ListingItem(3, "Mechanical Keyboard", "RM 120", "Electronics", "Like New", "James T.", Color(0xFFE8F0FE)),
     ListingItem(4, "Chemistry Lab Manual", "RM 15", "Books", "Fair", "Priya K.", Color(0xFFE8F5E9)),
