@@ -7,8 +7,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.secondshelf.BuildConfig
 import com.example.secondshelf.supabase
-import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.gotrue.providers.builtin.Email
+import io.github.jan.supabase.gotrue.parseSessionFromUrl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -111,7 +112,8 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             runCatching {
-                supabase.auth.retrieveSessionFromUrl(uri.toString())
+                val session = supabase.auth.parseSessionFromUrl(uri.toString())
+                supabase.auth.importSession(session)
             }.onSuccess {
                 _uiState.value = AuthUiState.Success
             }.onFailure {
