@@ -13,6 +13,7 @@ import io.github.jan.supabase.gotrue.parseSessionFromUrl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -32,6 +33,16 @@ class AuthViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
+
+    private fun setError(message: String) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Error(message)
+            delay(5000) // Clear error after 5 seconds
+            if (_uiState.value is AuthUiState.Error) {
+                _uiState.value = AuthUiState.Idle
+            }
+        }
+    }
 
     // ── Session check ─────────────────────────────────────────────────────────
 
@@ -55,7 +66,7 @@ class AuthViewModel : ViewModel() {
             }.onSuccess {
                 _uiState.value = AuthUiState.Success
             }.onFailure { e ->
-                _uiState.value = AuthUiState.Error(mapSignInError(e))
+                setError(mapSignInError(e))
             }
         }
     }
@@ -79,7 +90,7 @@ class AuthViewModel : ViewModel() {
             }.onSuccess {
                 _uiState.value = AuthUiState.Success
             }.onFailure { e ->
-                _uiState.value = AuthUiState.Error(mapSignUpError(e))
+                setError(mapSignUpError(e))
             }
         }
     }
@@ -116,8 +127,8 @@ class AuthViewModel : ViewModel() {
                 supabase.auth.importSession(session)
             }.onSuccess {
                 _uiState.value = AuthUiState.Success
-            }.onFailure {
-                _uiState.value = AuthUiState.Error("Google sign-in failed. Please try again.")
+            }.onFailure { e ->
+                setError("Google sign-in failed: ${e.message}")
             }
         }
     }
@@ -130,7 +141,7 @@ class AuthViewModel : ViewModel() {
     private fun mapSignInError(e: Throwable): String {
         val msg = e.message.orEmpty().lowercase()
         return when {
-            "invalid_credentials" in msg || "invalid login credentials" in msg ->
+            ("invalid_credentials" in msg) || ("invalid login credentials" in msg) ->
                 "No account found with this email, or the password is incorrect.\n" +
                 "Don't have an account yet? Please tap Sign Up below."
             "email not confirmed" in msg ->
@@ -138,7 +149,7 @@ class AuthViewModel : ViewModel() {
             "too many requests" in msg ->
                 "Too many login attempts. Please wait a moment and try again."
             else ->
-                "Login failed. Please check your connection and try again."
+                "Login failed: ${e.localizedMessage ?: "Connection error"}. Please check your internet and Supabase configuration."
         }
     }
 
@@ -152,7 +163,7 @@ class AuthViewModel : ViewModel() {
             "invalid email" in msg || "unable to validate" in msg ->
                 "Invalid email address. Please check and try again."
             else ->
-                "Registration failed. Please check your connection and try again."
+                "Registration failed: ${e.localizedMessage ?: "Connection error"}. Please check your connection."
         }
     }
 }
