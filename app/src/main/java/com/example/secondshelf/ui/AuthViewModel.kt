@@ -148,8 +148,10 @@ class AuthViewModel : ViewModel() {
                 "Please verify your email address before logging in. Check your inbox."
             "too many requests" in msg ->
                 "Too many login attempts. Please wait a moment and try again."
+            "unable to resolve host" in msg || "timeout" in msg || "connect" in msg ->
+                "Network Error: Unable to reach Supabase. Please Cold Boot your emulator or check your Wi-Fi."
             else ->
-                "Login failed: ${e.localizedMessage ?: "Connection error"}. Please check your internet and Supabase configuration."
+                "Login failed: ${e.localizedMessage ?: "Check connection"}. Please ensure your Supabase Key is correct."
         }
     }
 
