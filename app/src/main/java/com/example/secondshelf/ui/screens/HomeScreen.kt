@@ -1,12 +1,8 @@
 package com.example.secondshelf.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,28 +14,42 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.secondshelf.ui.AuthViewModel
-import com.example.secondshelf.ui.model.ListingItem
-import com.example.secondshelf.ui.model.mockListings
-import com.example.secondshelf.ui.model.mockMyListings
+import com.example.secondshelf.ui.components.*
+import com.example.secondshelf.ui.model.*
+import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
+import java.util.Calendar
 
 @Composable
 fun HomeScreen(
+    viewModel: MarketplaceViewModel,
+    onNavigateToNotifications: () -> Unit,
+    onNavigateToMarketplace: () -> Unit,
+    onNavigateToListing: (String) -> Unit,
     onNavigateToSettings: () -> Unit,
-    onNavigateToNotifications: () -> Unit
+    onNavigateToCreateListing: () -> Unit,
+    onNavigateToSaved: () -> Unit,
+    onNavigateToMessages: () -> Unit,
+    onNavigateToEditProfile: () -> Unit,
+    onLogout: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(viewModel.toastMessage) {
+        viewModel.toastMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.dismissToast()
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.background,
@@ -48,626 +58,390 @@ fun HomeScreen(
                 NavigationBarItem(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    icon = { Icon(if (selectedTab == 0) Icons.Default.Home else Icons.Default.Home, contentDescription = "Home") },
+                    icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
                     label = { Text("Home") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                    )
+                    colors = navColors()
                 )
                 NavigationBarItem(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
                     icon = { Icon(Icons.Default.Search, contentDescription = "Search") },
                     label = { Text("Search") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                    )
+                    colors = navColors()
                 )
                 NavigationBarItem(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
                     icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
                     label = { Text("Profile") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                    )
+                    colors = navColors()
                 )
             }
         }
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
             when (selectedTab) {
-                0 -> HomeTab(onNavigateToNotifications = onNavigateToNotifications)
-                1 -> SearchTab()
-                2 -> ProfileTab(onNavigateToSettings = onNavigateToSettings)
+                0 -> HomeTab(viewModel, onNavigateToNotifications, onNavigateToMarketplace, onNavigateToListing)
+                1 -> SearchTab(viewModel, onNavigateToListing)
+                2 -> ProfileTab(
+                    viewModel,
+                    onNavigateToSettings,
+                    onNavigateToCreateListing,
+                    onNavigateToListing,
+                    onNavigateToSaved,
+                    onNavigateToMessages,
+                    onNavigateToEditProfile,
+                    onLogout
+                )
             }
         }
     }
 }
 
-//Home tab
-
-private val categories = listOf("All", "Books", "Electronics", "Stationery", "Clothing", "Sports", "Appliances", "Accessories")
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeTab(onNavigateToNotifications: () -> Unit) {
-    var selectedCategory by remember { mutableStateOf("All") }
+private fun navColors() = NavigationBarItemDefaults.colors(
+    selectedIconColor = MaterialTheme.colorScheme.primary,
+    selectedTextColor = MaterialTheme.colorScheme.primary,
+    indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+)
 
-    val filtered = if (selectedCategory == "All") mockListings
-    else mockListings.filter { it.category == selectedCategory }
+private fun greeting(): String {
+    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+    return when {
+        hour < 12 -> "Good morning"
+        hour < 17 -> "Good afternoon"
+        else -> "Good evening"
+    }
+}
+
+@Composable
+private fun HomeTab(
+    viewModel: MarketplaceViewModel,
+    onNavigateToNotifications: () -> Unit,
+    onNavigateToMarketplace: () -> Unit,
+    onNavigateToListing: (String) -> Unit
+) {
+    val category = viewModel.homeCategory
+    val filtered = viewModel.filterListings(ListingFilters(category = category))
+    val unreadCount = viewModel.getUnreadNotificationCount()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        //Top bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.background)
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                val authViewModel: AuthViewModel = viewModel()
-                val userName = authViewModel.getUserFullName()
-                Text(
-                    "Hi, $userName",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                Text(
-                    "Second Shelf",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
+                Text(greeting() + " 👋", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                Text("Second Shelf", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
-            IconButton(
-                onClick = onNavigateToNotifications,
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
-            ) {
-                Icon(
-                    Icons.Default.Notifications,
-                    contentDescription = "Notifications",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
-
-        //Divider
-        Divider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
-
-        //Scrollable content
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-        ) {
-            //Featured Banner
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.primary
-            ) {
-                Row(
-                    modifier = Modifier.padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            Box {
+                IconButton(
+                    onClick = onNavigateToNotifications,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "Campus Deals",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = Color.White.copy(alpha = 0.85f)
-                        )
-                        Text(
-                            "Find great items from\nyour fellow students",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
-                        )
-                        Surface(
-                            color = Color.White,
-                            shape = RoundedCornerShape(20.dp)
-                        ) {
+                    Icon(Icons.Default.Notifications, contentDescription = "Notifications", tint = MaterialTheme.colorScheme.primary)
+                }
+                if (unreadCount > 0) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFFFF3B30),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(18.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
                             Text(
-                                "Browse Now",
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.labelLarge,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                if (unreadCount > 9) "9+" else "$unreadCount",
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
-                    Icon(
-                        Icons.Default.ShoppingBag,
-                        contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.3f),
-                        modifier = Modifier.size(80.dp)
-                    )
                 }
             }
+        }
 
-            //Categories
+        Divider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+
+        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            HeroBanner(onBrowseClick = onNavigateToMarketplace)
+
             Text(
                 "Categories",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = 20.dp, bottom = 12.dp)
             )
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(categories) { cat ->
-                    FilterChip(
-                        selected = selectedCategory == cat,
-                        onClick = { selectedCategory = cat },
-                        label = { Text(cat) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            selectedLabelColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(20.dp)
-                    )
-                }
-            }
+            CategorySelector(
+                selected = category,
+                onSelect = viewModel::updateHomeCategory
+            )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
 
-            //Listings header
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    if (selectedCategory == "All") "Recent Listings" else "$selectedCategory Listings",
+                    if (category == Category.ALL) "Recent Listings" else "${category.label} Listings",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    "${filtered.size} items",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary
+                Text("${filtered.size} items", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            if (filtered.isEmpty()) {
+                EmptyState("No listings found", "Try a different category")
+            } else {
+                ListingGrid(
+                    listings = filtered,
+                    isFavorite = viewModel::isFavorite,
+                    onFavoriteClick = viewModel::toggleFavorite,
+                    onListingClick = onNavigateToListing
                 )
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            //Listings grid
-            Column(
-                modifier = Modifier.padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                filtered.chunked(2).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        row.forEach { item ->
-                            ListingCard(item = item, modifier = Modifier.weight(1f))
-                        }
-                        //Fill empty slot if odd count
-                        if (row.size == 1) {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
 
-
-//SSearch tab
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SearchTab() {
-    var query by remember { mutableStateOf("") }
-    var selectedFilter by remember { mutableStateOf("All") }
-    val filters = listOf("All", "Books", "Electronics", "Clothing", "Sports", "Accessories")
+private fun SearchTab(viewModel: MarketplaceViewModel, onNavigateToListing: (String) -> Unit) {
+    var query by remember { mutableStateOf(viewModel.searchQuery) }
+    var selectedFilter by remember { mutableStateOf(Category.ALL) }
 
-    val results = mockListings.filter { item ->
-        val matchesQuery = query.isBlank() ||
-                item.title.contains(query, ignoreCase = true) ||
-                item.category.contains(query, ignoreCase = true) ||
-                item.seller.contains(query, ignoreCase = true)
-        val matchesFilter = selectedFilter == "All" || item.category == selectedFilter
-        matchesQuery && matchesFilter
-    }
+    val results = viewModel.filterListings(
+        ListingFilters(
+            category = selectedFilter,
+            query = query,
+            sort = if (query.isNotBlank()) SortOption.RELEVANCE else SortOption.NEWEST
+        )
+    )
 
     Column(modifier = Modifier.fillMaxSize()) {
-        //Search header
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(horizontal = 20.dp, vertical = 16.dp)
-        ) {
-            Text(
-                "Search",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp)) {
+            Text("Search", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
             OutlinedTextField(
                 value = query,
-                onValueChange = { query = it },
+                onValueChange = { query = it; viewModel.updateSearchQuery(it) },
                 placeholder = { Text("Search items, sellers…") },
-                leadingIcon = {
-                    Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                 trailingIcon = if (query.isNotEmpty()) {
-                    {
-                        IconButton(onClick = { query = "" }) {
-                            Icon(Icons.Default.Close, contentDescription = "Clear", tint = MaterialTheme.colorScheme.secondary)
-                        }
-                    }
+                    { IconButton(onClick = { query = ""; viewModel.updateSearchQuery("") }) { Icon(Icons.Default.Close, contentDescription = "Clear") } }
                 } else null,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = Color(0xFFE5E7EB)
-                )
+                singleLine = true
             )
+
+            if (query.isEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Text("Popular searches", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
+                Spacer(Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    searchSuggestions.take(4).forEach { suggestion ->
+                        SuggestionChip(onClick = { query = suggestion; viewModel.updateSearchQuery(suggestion) }, label = { Text(suggestion) })
+                    }
+                }
+            }
         }
 
         Divider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-        ) {
-            //Filters
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(filters) { filter ->
-                    FilterChip(
-                        selected = selectedFilter == filter,
-                        onClick = { selectedFilter = filter },
-                        label = { Text(filter) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            selectedLabelColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(20.dp)
-                    )
-                }
-            }
+        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            CategorySelector(selected = selectedFilter, onSelect = { selectedFilter = it })
 
-            //Results count
             Text(
                 "${results.size} result${if (results.size != 1) "s" else ""}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
-
             if (results.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 80.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Default.SearchOff,
-                            contentDescription = null,
-                            tint = Color(0xFFD1D5DB),
-                            modifier = Modifier.size(64.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("No items found", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.secondary)
-                        Text("Try a different keyword or filter", style = MaterialTheme.typography.bodyMedium, color = Color(0xFFD1D5DB))
-                    }
-                }
+                EmptyState("No items found", "Try a different keyword or filter")
             } else {
-                Column(
-                    modifier = Modifier.padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    results.chunked(2).forEach { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            row.forEach { item ->
-                                ListingCard(item = item, modifier = Modifier.weight(1f))
-                            }
-                            if (row.size == 1) Spacer(modifier = Modifier.weight(1f))
-                        }
-                    }
-                }
+                ListingGrid(
+                    listings = results,
+                    isFavorite = viewModel::isFavorite,
+                    onFavoriteClick = viewModel::toggleFavorite,
+                    onListingClick = onNavigateToListing
+                )
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
 
-//Profile tab
-
-
 @Composable
-fun ProfileTab(onNavigateToSettings: () -> Unit) {
-    val authViewModel: AuthViewModel = viewModel()
-    val userName = authViewModel.getUserFullName()
-    val userEmail = authViewModel.getUserEmail()
+private fun ProfileTab(
+    viewModel: MarketplaceViewModel,
+    onNavigateToSettings: () -> Unit,
+    onNavigateToCreateListing: () -> Unit,
+    onNavigateToListing: (String) -> Unit,
+    onNavigateToSaved: () -> Unit,
+    onNavigateToMessages: () -> Unit,
+    onNavigateToEditProfile: () -> Unit,
+    onLogout: () -> Unit
+) {
+    val user = viewModel.currentUser
+    val myListings = viewModel.getMyListings()
+    val savedCount = viewModel.getSavedListings().size
+    var showLogoutDialog by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-    ) {
-        //Profile header bar
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Log Out") },
+            text = { Text("Are you sure you want to log out of Second Shelf?") },
+            confirmButton = {
+                TextButton(onClick = { showLogoutDialog = false; onLogout() }) {
+                    Text("Log Out", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = { TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel") } },
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "Profile",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
+            Text("Profile", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             IconButton(
                 onClick = onNavigateToSettings,
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                modifier = Modifier.size(44.dp).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
             ) {
                 Icon(Icons.Default.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.primary)
             }
         }
 
-        //User card
         Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                //Avatar
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(72.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                        Text(
-                            userName.take(1).uppercase(),
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+            Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(72.dp)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(user.avatarInitial, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    userName,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    userEmail,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                Text(
-                    "University of Technology",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
+                Spacer(Modifier.height(12.dp))
+                Text(user.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(user.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                Text(user.university, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(top = 2.dp))
 
-                Spacer(modifier = Modifier.height(20.dp))
-
-                //Stats row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    ProfileStat("4", "Listed Items")
-                    Box(modifier = Modifier.width(0.5.dp).height(40.dp).background(Color(0xFFE5E7EB)))
-                    ProfileStat("12", "Followers")
-                    Box(modifier = Modifier.width(0.5.dp).height(40.dp).background(Color(0xFFE5E7EB)))
-                    ProfileStat("8", "Following")
+                Spacer(Modifier.height(20.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    ProfileStat("${myListings.size}", "Listed Items")
+                    VerticalDivider()
+                    ProfileStat("$savedCount", "Saved")
+                    VerticalDivider()
+                    ProfileStat("${viewModel.conversations.size}", "Messages")
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(Modifier.height(16.dp))
 
-        //My Listings section
+        ProfileMenuSection {
+            ProfileMenuItem(Icons.Default.Inventory2, "My Listings", MaterialTheme.colorScheme.primary) {}
+            ProfileMenuItem(Icons.Default.Favorite, "Saved Items", Color(0xFFFF3B30), onNavigateToSaved)
+            ProfileMenuItem(Icons.Default.Chat, "Messages", Color(0xFF5856D6), onNavigateToMessages)
+            ProfileMenuItem(Icons.Default.Edit, "Edit Profile", Color(0xFF34C759), onNavigateToEditProfile)
+            ProfileMenuItem(Icons.Default.Settings, "Settings", Color(0xFF636366), onNavigateToSettings)
+            ProfileMenuItem(Icons.Default.Logout, "Logout", MaterialTheme.colorScheme.error) { showLogoutDialog = true }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "My Listings",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Button(
-                onClick = {},
-                shape = RoundedCornerShape(20.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-            ) {
+            Text("My Listings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Button(onClick = onNavigateToCreateListing, shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("List Item", style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.width(4.dp))
+                Text("List Item")
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(Modifier.height(12.dp))
 
-        Column(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            mockMyListings.chunked(2).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    row.forEach { item ->
-                        ListingCard(item = item, modifier = Modifier.weight(1f))
-                    }
-                    if (row.size == 1) Spacer(modifier = Modifier.weight(1f))
-                }
+        if (myListings.isEmpty()) {
+            EmptyState("No listings yet", "Tap List Item to sell something") {
+                Button(onClick = onNavigateToCreateListing) { Text("Sell Item") }
             }
+        } else {
+            ListingGrid(
+                listings = myListings,
+                isFavorite = viewModel::isFavorite,
+                onFavoriteClick = viewModel::toggleFavorite,
+                onListingClick = onNavigateToListing
+            )
         }
-
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(Modifier.height(20.dp))
     }
 }
 
-
-//Shared components
-
-
 @Composable
-fun ListingCard(item: ListingItem, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column {
-            //Image placeholder
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp)
-                    .background(item.cardColor, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                val icon = when (item.category) {
-                    "Books" -> Icons.Default.MenuBook
-                    "Electronics" -> Icons.Default.Devices
-                    "Clothing" -> Icons.Default.Checkroom
-                    "Sports" -> Icons.Default.SportsSoccer
-                    "Appliances" -> Icons.Default.Kitchen
-                    else -> Icons.Default.ShoppingBag
-                }
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                    modifier = Modifier.size(48.dp)
-                )
-                //Condition badge
-                Surface(
-                    color = when (item.condition) {
-                        "Like New" -> Color(0xFF007AFF).copy(alpha = 0.15f)
-                        "Good" -> Color(0xFF34C759).copy(alpha = 0.15f)
-                        "Fair" -> Color(0xFFFF9500).copy(alpha = 0.15f)
-                        else -> Color(0xFF34C759).copy(alpha = 0.15f)
-                    },
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(6.dp)
-                ) {
-                    Text(
-                        item.condition,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontSize = 10.sp,
-                        color = when (item.condition) {
-                            "Like New" -> Color(0xFF007AFF)
-                            "Good" -> Color(0xFF34C759)
-                            "Fair" -> Color(0xFFFF9500)
-                            else -> Color(0xFF34C759)
-                        },
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                    )
-                }
-            }
-
-            //Details
-            Column(modifier = Modifier.padding(10.dp)) {
-                Text(
-                    item.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    item.price,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Person,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text(
-                        item.seller,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.secondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-    }
+private fun VerticalDivider() {
+    Box(modifier = Modifier.width(0.5.dp).height(40.dp).background(Color(0xFFE5E7EB)))
 }
 
 @Composable
 private fun ProfileStat(value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            value,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.secondary
-        )
+        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+    }
+}
+
+@Composable
+private fun ProfileMenuSection(content: @Composable ColumnScope.() -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(content = content)
+    }
+}
+
+@Composable
+private fun ProfileMenuItem(icon: ImageVector, label: String, iconColor: Color, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(shape = RoundedCornerShape(10.dp), color = iconColor.copy(alpha = 0.12f), modifier = Modifier.size(36.dp)) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
+            }
+        }
+        Spacer(Modifier.width(14.dp))
+        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFFD1D5DB), modifier = Modifier.size(16.dp))
     }
 }

@@ -30,8 +30,10 @@ import com.example.secondshelf.R
 import com.example.secondshelf.ui.AuthUiState
 import com.example.secondshelf.ui.AuthViewModel
 
-private fun isValidEmail(email: String): Boolean =
-    email.contains("@") && email.contains(".")
+private fun isValidEmail(email: String): Boolean {
+    val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+    return emailRegex.matches(email.trim())
+}
 
 @Composable
 fun RegisterScreen(

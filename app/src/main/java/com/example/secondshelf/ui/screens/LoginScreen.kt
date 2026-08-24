@@ -33,6 +33,12 @@ import com.example.secondshelf.ui.AuthUiState
 import com.example.secondshelf.ui.AuthViewModel
 import com.example.secondshelf.R
 
+// ── Validation helpers ────────────────────────────────────────────────────────
+private fun isValidLoginEmail(email: String): Boolean {
+    val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+    return emailRegex.matches(email.trim())
+}
+
 @Composable
 fun LoginScreen(
     viewModel: AuthViewModel,
@@ -42,9 +48,11 @@ fun LoginScreen(
     var email           by remember { mutableStateOf("") }
     var password        by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var emailError      by remember { mutableStateOf("") }
+    var passwordError   by remember { mutableStateOf("") }
 
-    val uiState    by viewModel.uiState.collectAsState()
-    val isLoading  = uiState is AuthUiState.Loading
+    val uiState      by viewModel.uiState.collectAsState()
+    val isLoading    = uiState is AuthUiState.Loading
     val errorMessage = (uiState as? AuthUiState.Error)?.message ?: ""
 
     val context = LocalContext.current
@@ -120,13 +128,19 @@ fun LoginScreen(
             value = email,
             onValueChange = {
                 email = it
+                emailError = ""
                 if (uiState is AuthUiState.Error) viewModel.resetState()
             },
             placeholder = { Text("Enter your email") },
             leadingIcon = {
                 Icon(Icons.Default.Email, contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary)
+                    tint = if (emailError.isNotEmpty()) MaterialTheme.colorScheme.error
+                           else MaterialTheme.colorScheme.primary)
             },
+            isError = emailError.isNotEmpty(),
+            supportingText = if (emailError.isNotEmpty()) {
+                { Text(emailError, color = MaterialTheme.colorScheme.error) }
+            } else null,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),
@@ -151,12 +165,14 @@ fun LoginScreen(
             value = password,
             onValueChange = {
                 password = it
+                passwordError = ""
                 if (uiState is AuthUiState.Error) viewModel.resetState()
             },
             placeholder = { Text("Enter your password") },
             leadingIcon = {
                 Icon(Icons.Default.Lock, contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary)
+                    tint = if (passwordError.isNotEmpty()) MaterialTheme.colorScheme.error
+                           else MaterialTheme.colorScheme.primary)
             },
             trailingIcon = {
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -168,6 +184,10 @@ fun LoginScreen(
                     )
                 }
             },
+            isError = passwordError.isNotEmpty(),
+            supportingText = if (passwordError.isNotEmpty()) {
+                { Text(passwordError, color = MaterialTheme.colorScheme.error) }
+            } else null,
             visualTransformation = if (passwordVisible) VisualTransformation.None
                                    else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -194,13 +214,25 @@ fun LoginScreen(
 
         //Login button
         Button(
-            onClick = { viewModel.signIn(email.trim(), password) },
+            onClick = {
+                // Client-side validation before hitting Supabase
+                var valid = true
+                if (email.isBlank() || !isValidLoginEmail(email)) {
+                    emailError = "Please enter a valid email address."
+                    valid = false
+                }
+                if (password.length < 6) {
+                    passwordError = "Password must be at least 6 characters."
+                    valid = false
+                }
+                if (valid) viewModel.signIn(email.trim(), password)
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-            enabled = !isLoading && email.isNotBlank() && password.isNotBlank()
+            enabled = !isLoading
         ) {
             if (isLoading) {
                 CircularProgressIndicator(

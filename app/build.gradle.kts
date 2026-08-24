@@ -15,12 +15,12 @@ plugins {
 
 android {
     namespace = "com.example.secondshelf"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.secondshelf"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -79,7 +79,11 @@ dependencies {
     implementation(libs.supabase.postgrest)
 
     // Ktor HTTP engine (required by Supabase SDK)
-    implementation(libs.ktor.client.android)
+    implementation(platform(libs.ktor.bom))
+    implementation(libs.ktor.core)
+    implementation(libs.ktor.okhttp)
+    implementation(libs.ktor.content.negotiation)
+    implementation(libs.ktor.json)
 
     // ViewModel in Compose
     implementation(libs.lifecycle.viewmodel.compose)

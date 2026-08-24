@@ -10,28 +10,19 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.secondshelf.ui.AuthViewModel
-import com.example.secondshelf.ui.screens.HomeScreen
-import com.example.secondshelf.ui.screens.LoginScreen
-import com.example.secondshelf.ui.screens.NotificationsScreen
-import com.example.secondshelf.ui.screens.OnboardingScreen
-import com.example.secondshelf.ui.screens.RegisterScreen
-import com.example.secondshelf.ui.screens.SetPasswordScreen
-import com.example.secondshelf.ui.screens.SettingsScreen
-import com.example.secondshelf.ui.screens.SplashScreen
+import com.example.secondshelf.ui.screens.*
+import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 
 @Composable
 fun AppNavigation(authCallbackUri: Uri? = null) {
     val navController = rememberNavController()
-
-    // One shared AuthViewModel for all auth screens (Activity-scoped)
     val authViewModel: AuthViewModel = viewModel()
+    val marketplaceViewModel: MarketplaceViewModel = viewModel()
 
-    // Handle Google OAuth deep-link redirect forwarded from MainActivity
     LaunchedEffect(authCallbackUri) {
         authCallbackUri?.let { authViewModel.handleAuthCallback(it) }
     }
 
-    // Auto-login: skip to Home if a valid session already exists
     LaunchedEffect(Unit) {
         if (authViewModel.isLoggedIn()) {
             navController.navigate("home") {
@@ -42,121 +33,187 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
 
     NavHost(navController = navController, startDestination = "splash") {
 
-        // ── Splash ──────────────────────────────────────────────────────
         composable("splash") {
             SplashScreen(
                 onNavigateToOnboarding = {
-                    navController.navigate("onboarding") {
-                        popUpTo("splash") { inclusive = true }
-                    }
+                    navController.navigate("onboarding") { popUpTo("splash") { inclusive = true } }
                 }
             )
         }
 
-        // ── Onboarding ──────────────────────────────────────────────────
         composable("onboarding") {
             OnboardingScreen(
                 onNavigateToLogin = {
-                    navController.navigate("login") {
-                        popUpTo("onboarding") { inclusive = true }
-                    }
+                    navController.navigate("login") { popUpTo("onboarding") { inclusive = true } }
                 }
             )
         }
 
-        // ── Login ────────────────────────────────────────────────────────
         composable("login") {
             LoginScreen(
                 viewModel = authViewModel,
                 onNavigateToHome = {
-                    navController.navigate("home") {
-                        popUpTo(0) { inclusive = true }
-                    }
+                    navController.navigate("home") { popUpTo(0) { inclusive = true } }
                 },
-                onNavigateToRegister = {
-                    navController.navigate("register")
-                }
+                onNavigateToRegister = { navController.navigate("register") }
             )
         }
 
-        // ── Register ─────────────────────────────────────────────────────
         composable("register") {
             RegisterScreen(
                 viewModel = authViewModel,
                 onNavigateToSetPassword = { name, email, phone ->
-                    val encodedName  = Uri.encode(name)
-                    val encodedEmail = Uri.encode(email)
-                    val encodedPhone = Uri.encode(phone)
                     navController.navigate(
-                        "set_password?name=$encodedName&email=$encodedEmail&phone=$encodedPhone"
+                        "set_password?name=${Uri.encode(name)}&email=${Uri.encode(email)}&phone=${Uri.encode(phone)}"
                     )
                 },
-                onNavigateToLogin = {
-                    navController.popBackStack()
-                },
+                onNavigateToLogin = { navController.popBackStack() },
                 onNavigateToHome = {
-                    navController.navigate("home") {
-                        popUpTo(0) { inclusive = true }
-                    }
+                    navController.navigate("home") { popUpTo(0) { inclusive = true } }
                 }
             )
         }
 
-        // ── Set Password ─────────────────────────────────────────────────
         composable(
             route = "set_password?name={name}&email={email}&phone={phone}",
             arguments = listOf(
-                navArgument("name")  { type = NavType.StringType; defaultValue = "" },
+                navArgument("name") { type = NavType.StringType; defaultValue = "" },
                 navArgument("email") { type = NavType.StringType; defaultValue = "" },
                 navArgument("phone") { type = NavType.StringType; defaultValue = "" }
             )
         ) { backStackEntry ->
-            val name  = backStackEntry.arguments?.getString("name")  ?: ""
-            val email = backStackEntry.arguments?.getString("email") ?: ""
-            val phone = backStackEntry.arguments?.getString("phone") ?: ""
             SetPasswordScreen(
                 viewModel = authViewModel,
-                userName  = name,
-                userEmail = email,
-                userPhone = phone,
+                userName = backStackEntry.arguments?.getString("name") ?: "",
+                userEmail = backStackEntry.arguments?.getString("email") ?: "",
+                userPhone = backStackEntry.arguments?.getString("phone") ?: "",
                 onNavigateToHome = {
-                    navController.navigate("home") {
-                        popUpTo(0) { inclusive = true }
-                    }
+                    navController.navigate("home") { popUpTo(0) { inclusive = true } }
                 },
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
-        // ── Home (with bottom nav) ────────────────────────────────────────
         composable("home") {
             HomeScreen(
-                onNavigateToSettings = {
-                    navController.navigate("settings")
+                viewModel = marketplaceViewModel,
+                onNavigateToNotifications = { navController.navigate("notifications") },
+                onNavigateToMarketplace = { navController.navigate("marketplace") },
+                onNavigateToListing = { id -> navController.navigate("listing/$id") },
+                onNavigateToSettings = { navController.navigate("settings") },
+                onNavigateToCreateListing = { navController.navigate("create_listing") },
+                onNavigateToSaved = { navController.navigate("saved") },
+                onNavigateToMessages = { navController.navigate("messages") },
+                onNavigateToEditProfile = { navController.navigate("edit_profile") },
+                onLogout = {
+                    authViewModel.signOut()
+                    navController.navigate("login") { popUpTo(0) { inclusive = true } }
+                }
+            )
+        }
+
+        composable("marketplace") {
+            MarketplaceScreen(
+                viewModel = marketplaceViewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onListingClick = { id -> navController.navigate("listing/$id") }
+            )
+        }
+
+        composable(
+            route = "listing/{listingId}",
+            arguments = listOf(navArgument("listingId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val listingId = backStackEntry.arguments?.getString("listingId") ?: return@composable
+            ListingDetailScreen(
+                listingId = listingId,
+                viewModel = marketplaceViewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onContactSeller = { participantId, lid ->
+                    navController.navigate("conversation/$participantId/$lid")
                 },
-                onNavigateToNotifications = {
-                    navController.navigate("notifications")
-                }
+                onViewSeller = { /* seller info shown in detail */ },
+                onEditListing = { id -> navController.navigate("edit_listing/$id") }
             )
         }
 
-        // ── Settings ──────────────────────────────────────────────────────
-        composable("settings") {
-            SettingsScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
+        composable("create_listing") {
+            CreateListingScreen(
+                viewModel = marketplaceViewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onSuccess = { navController.popBackStack() }
             )
         }
 
-        // ── Notifications ─────────────────────────────────────────────────
+        composable(
+            route = "edit_listing/{listingId}",
+            arguments = listOf(navArgument("listingId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val listingId = backStackEntry.arguments?.getString("listingId") ?: return@composable
+            CreateListingScreen(
+                viewModel = marketplaceViewModel,
+                listingId = listingId,
+                onNavigateBack = { navController.popBackStack() },
+                onSuccess = { navController.popBackStack() }
+            )
+        }
+
         composable("notifications") {
             NotificationsScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
+                viewModel = marketplaceViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("settings") {
+            SettingsScreen(
+                viewModel = marketplaceViewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToEditProfile = { navController.navigate("edit_profile") },
+                onLogout = {
+                    authViewModel.signOut()
+                    navController.navigate("login") { popUpTo(0) { inclusive = true } }
                 }
+            )
+        }
+
+        composable("saved") {
+            SavedItemsScreen(
+                viewModel = marketplaceViewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onListingClick = { id -> navController.navigate("listing/$id") }
+            )
+        }
+
+        composable("messages") {
+            MessagesScreen(
+                viewModel = marketplaceViewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onConversationClick = { participantId, listingId ->
+                    navController.navigate("conversation/$participantId/$listingId")
+                }
+            )
+        }
+
+        composable(
+            route = "conversation/{participantId}/{listingId}",
+            arguments = listOf(
+                navArgument("participantId") { type = NavType.StringType },
+                navArgument("listingId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            ConversationScreen(
+                participantId = backStackEntry.arguments?.getString("participantId") ?: return@composable,
+                listingId = backStackEntry.arguments?.getString("listingId") ?: return@composable,
+                viewModel = marketplaceViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("edit_profile") {
+            EditProfileScreen(
+                viewModel = marketplaceViewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

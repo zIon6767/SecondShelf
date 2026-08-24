@@ -33,6 +33,7 @@ import com.example.secondshelf.ui.AuthUiState
 import com.example.secondshelf.ui.AuthViewModel
 import com.example.secondshelf.ui.theme.DangerRed
 import com.example.secondshelf.ui.theme.SuccessGreen
+import androidx.compose.material.icons.filled.MarkEmailRead
 
 @Composable
 fun SetPasswordScreen(
@@ -60,12 +61,24 @@ fun SetPasswordScreen(
     val hasSpecialChar = password.any { !it.isLetterOrDigit() }
     val allMet         = hasMinLength && hasUppercase && hasDigit && hasSpecialChar
 
-    // Navigate to home on successful registration
+    // Navigate to home on successful registration (session confirmed)
     LaunchedEffect(uiState) {
         if (uiState is AuthUiState.Success) {
             viewModel.resetState()
             onNavigateToHome()
         }
+    }
+
+    // Show email confirmation screen if Supabase requires it
+    if (uiState is AuthUiState.EmailConfirmationRequired) {
+        EmailConfirmationScreen(
+            email = (uiState as AuthUiState.EmailConfirmationRequired).email,
+            onBackToLogin = {
+                viewModel.resetState()
+                onNavigateBack()
+            }
+        )
+        return
     }
 
     // Reset API error when user starts typing
@@ -307,5 +320,93 @@ private fun PasswordRequirement(text: String, met: Boolean) {
             style = MaterialTheme.typography.bodyMedium,
             color = if (met) SuccessGreen else MaterialTheme.colorScheme.secondary
         )
+    }
+}
+
+// ── Email Confirmation Screen ─────────────────────────────────────────────────
+
+@Composable
+fun EmailConfirmationScreen(
+    email: String,
+    onBackToLogin: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Icon
+        Surface(
+            shape = androidx.compose.foundation.shape.CircleShape,
+            color = SuccessGreen.copy(alpha = 0.12f),
+            modifier = Modifier.size(100.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                Icon(
+                    imageVector = Icons.Default.MarkEmailRead,
+                    contentDescription = "Email sent",
+                    tint = SuccessGreen,
+                    modifier = Modifier.size(52.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        Text(
+            text = "Check Your Email",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "We sent a confirmation link to:",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.secondary
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Surface(
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.padding(horizontal = 8.dp)
+        ) {
+            Text(
+                text = email,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Please open your email and click the confirmation link to activate your account. Once confirmed, you can log in.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.secondary,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+
+        Spacer(modifier = Modifier.height(36.dp))
+
+        Button(
+            onClick = onBackToLogin,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+        ) {
+            Text("Back to Login", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
     }
 }
