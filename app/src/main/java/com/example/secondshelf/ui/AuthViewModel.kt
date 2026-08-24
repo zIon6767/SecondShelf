@@ -49,6 +49,18 @@ class AuthViewModel : ViewModel() {
     /** Returns true if a valid Supabase session already exists (persisted login). */
     fun isLoggedIn(): Boolean = supabase.auth.currentSessionOrNull() != null
 
+    /** Returns the full name of the currently logged-in user from metadata. */
+    fun getUserFullName(): String {
+        val user = supabase.auth.currentUserOrNull()
+        val fullName = user?.userMetadata?.get("full_name")?.toString()?.trim('"')
+        return if (fullName.isNullOrBlank() || fullName == "null") "User" else fullName
+    }
+
+    /** Returns the email of the currently logged-in user. */
+    fun getUserEmail(): String {
+        return supabase.auth.currentUserOrNull()?.email ?: "user@example.com"
+    }
+
     // ── Email / Password Auth ─────────────────────────────────────────────────
 
     /**

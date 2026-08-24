@@ -26,6 +26,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.secondshelf.ui.AuthViewModel
 import com.example.secondshelf.ui.model.ListingItem
 import com.example.secondshelf.ui.model.mockListings
 import com.example.secondshelf.ui.model.mockMyListings
@@ -112,8 +114,10 @@ fun HomeTab(onNavigateToNotifications: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
+                val authViewModel: AuthViewModel = viewModel()
+                val userName = authViewModel.getUserFullName()
                 Text(
-                    "Good morning 👋",
+                    "Hi, $userName",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.secondary
                 )
@@ -161,7 +165,7 @@ fun HomeTab(onNavigateToNotifications: () -> Unit) {
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "🎓 Campus Deals",
+                            "Campus Deals",
                             style = MaterialTheme.typography.labelLarge,
                             color = Color.White.copy(alpha = 0.85f)
                         )
@@ -406,6 +410,10 @@ fun SearchTab() {
 
 @Composable
 fun ProfileTab(onNavigateToSettings: () -> Unit) {
+    val authViewModel: AuthViewModel = viewModel()
+    val userName = authViewModel.getUserFullName()
+    val userEmail = authViewModel.getUserEmail()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -455,7 +463,7 @@ fun ProfileTab(onNavigateToSettings: () -> Unit) {
                 ) {
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                         Text(
-                            "A",
+                            userName.take(1).uppercase(),
                             fontSize = 28.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -464,17 +472,17 @@ fun ProfileTab(onNavigateToSettings: () -> Unit) {
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    "Alex Johnson",
+                    userName,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "alex.johnson@university.edu.my",
+                    userEmail,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.secondary
                 )
                 Text(
-                    "🎓 University of Technology",
+                    "University of Technology",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.padding(top = 2.dp)
