@@ -1,6 +1,7 @@
 package com.example.secondshelf.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,8 +19,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -28,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.secondshelf.ui.AuthUiState
 import com.example.secondshelf.ui.AuthViewModel
+import com.example.secondshelf.R
 
 @Composable
 fun LoginScreen(
@@ -45,7 +49,7 @@ fun LoginScreen(
 
     val context = LocalContext.current
 
-    // Navigate to home when Supabase auth succeeds
+    //Navigate to home when Supabase auth succeeds
     LaunchedEffect(uiState) {
         if (uiState is AuthUiState.Success) {
             viewModel.resetState()
@@ -62,9 +66,9 @@ fun LoginScreen(
     ) {
         Spacer(modifier = Modifier.height(72.dp))
 
-        // ── Header ────────────────────────────────────────────────────────────
+        //Header
         Text(
-            text = "Welcome back! 👋",
+            text = "Welcome back!",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground
@@ -76,7 +80,7 @@ fun LoginScreen(
             modifier = Modifier.padding(top = 8.dp, bottom = 28.dp)
         )
 
-        // ── Error card (shown on auth failure) ────────────────────────────────
+        //Error card (shown on auth failure)
         AnimatedVisibility(visible = errorMessage.isNotEmpty()) {
             Surface(
                 color = MaterialTheme.colorScheme.errorContainer,
@@ -105,7 +109,7 @@ fun LoginScreen(
             }
         }
 
-        // ── Email field ───────────────────────────────────────────────────────
+        //Email field
         Text(
             text = "Email",
             style = MaterialTheme.typography.labelLarge,
@@ -136,7 +140,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ── Password field ────────────────────────────────────────────────────
+        //Password field
         Text(
             text = "Password",
             style = MaterialTheme.typography.labelLarge,
@@ -177,7 +181,7 @@ fun LoginScreen(
             )
         )
 
-        // Forgot password
+        //Forgot password
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
             TextButton(onClick = {}, enabled = !isLoading) {
                 Text("Forgot Password?",
@@ -188,7 +192,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ── Login button ──────────────────────────────────────────────────────
+        //Login button
         Button(
             onClick = { viewModel.signIn(email.trim(), password) },
             modifier = Modifier
@@ -211,7 +215,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // ── Divider ───────────────────────────────────────────────────────────
+        //Divider
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Divider(modifier = Modifier.weight(1f), color = Color(0xFFE5E7EB))
             Text("  or continue with  ",
@@ -222,7 +226,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // ── Google button ─────────────────────────────────────────────────────
+        //Google button
         OutlinedButton(
             onClick = { viewModel.signInWithGoogle(context) },
             modifier = Modifier
@@ -234,8 +238,12 @@ fun LoginScreen(
             border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.5.dp),
             enabled = !isLoading
         ) {
-            Text("G", fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF4285F4), fontSize = 18.sp)
+            Image(
+                painter = painterResource(id = R.drawable.google_favicon_2025),
+                contentDescription = "google logo",
+                modifier = Modifier
+                    .size(20.dp)
+            )
             Spacer(modifier = Modifier.width(10.dp))
             Text("Continue with Google", fontSize = 15.sp, fontWeight = FontWeight.Medium)
         }
