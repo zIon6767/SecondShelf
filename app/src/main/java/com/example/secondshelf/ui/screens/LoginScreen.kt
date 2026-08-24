@@ -250,7 +250,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // ── Sign up link ──────────────────────────────────────────────────────
+        //Sign up link
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,

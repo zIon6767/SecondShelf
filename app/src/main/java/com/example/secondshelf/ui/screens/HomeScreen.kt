@@ -30,10 +30,6 @@ import com.example.secondshelf.ui.model.ListingItem
 import com.example.secondshelf.ui.model.mockListings
 import com.example.secondshelf.ui.model.mockMyListings
 
-// ──────────────────────────────────────────────────────────────
-// Home Screen Shell (with Bottom Navigation)
-// ──────────────────────────────────────────────────────────────
-
 @Composable
 fun HomeScreen(
     onNavigateToSettings: () -> Unit,
@@ -93,9 +89,7 @@ fun HomeScreen(
     }
 }
 
-// ──────────────────────────────────────────────────────────────
-// HOME TAB
-// ──────────────────────────────────────────────────────────────
+//Home tab
 
 private val categories = listOf("All", "Books", "Electronics", "Stationery", "Clothing", "Sports", "Appliances", "Accessories")
 
@@ -108,7 +102,7 @@ fun HomeTab(onNavigateToNotifications: () -> Unit) {
     else mockListings.filter { it.category == selectedCategory }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Top bar
+        //Top bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -144,16 +138,16 @@ fun HomeTab(onNavigateToNotifications: () -> Unit) {
             }
         }
 
-        // Divider
+        //Divider
         Divider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
 
-        // Scrollable content
+        //Scrollable content
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
-            // Featured Banner
+            //Featured Banner
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -200,7 +194,7 @@ fun HomeTab(onNavigateToNotifications: () -> Unit) {
                 }
             }
 
-            // Categories
+            //Categories
             Text(
                 "Categories",
                 style = MaterialTheme.typography.titleLarge,
@@ -227,7 +221,7 @@ fun HomeTab(onNavigateToNotifications: () -> Unit) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Listings header
+            //Listings header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -249,7 +243,7 @@ fun HomeTab(onNavigateToNotifications: () -> Unit) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Listings grid
+            //Listings grid
             Column(
                 modifier = Modifier.padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -259,7 +253,7 @@ fun HomeTab(onNavigateToNotifications: () -> Unit) {
                         row.forEach { item ->
                             ListingCard(item = item, modifier = Modifier.weight(1f))
                         }
-                        // Fill empty slot if odd count
+                        //Fill empty slot if odd count
                         if (row.size == 1) {
                             Spacer(modifier = Modifier.weight(1f))
                         }
@@ -272,9 +266,9 @@ fun HomeTab(onNavigateToNotifications: () -> Unit) {
     }
 }
 
-// ──────────────────────────────────────────────────────────────
-// SEARCH TAB
-// ──────────────────────────────────────────────────────────────
+
+//SSearch tab
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -293,7 +287,7 @@ fun SearchTab() {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Search header
+        //Search header
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -338,7 +332,7 @@ fun SearchTab() {
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
-            // Filters
+            //Filters
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -357,7 +351,7 @@ fun SearchTab() {
                 }
             }
 
-            // Results count
+            //Results count
             Text(
                 "${results.size} result${if (results.size != 1) "s" else ""}",
                 style = MaterialTheme.typography.bodyMedium,
@@ -407,9 +401,8 @@ fun SearchTab() {
     }
 }
 
-// ──────────────────────────────────────────────────────────────
-// PROFILE TAB
-// ──────────────────────────────────────────────────────────────
+//Profile tab
+
 
 @Composable
 fun ProfileTab(onNavigateToSettings: () -> Unit) {
@@ -418,7 +411,7 @@ fun ProfileTab(onNavigateToSettings: () -> Unit) {
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
-        // Profile header bar
+        //Profile header bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -442,7 +435,7 @@ fun ProfileTab(onNavigateToSettings: () -> Unit) {
             }
         }
 
-        // User card
+        //User card
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -454,7 +447,7 @@ fun ProfileTab(onNavigateToSettings: () -> Unit) {
                 modifier = Modifier.padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Avatar
+                //Avatar
                 Surface(
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.primary,
@@ -489,7 +482,7 @@ fun ProfileTab(onNavigateToSettings: () -> Unit) {
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Stats row
+                //Stats row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
@@ -505,7 +498,7 @@ fun ProfileTab(onNavigateToSettings: () -> Unit) {
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // My Listings section
+        //My Listings section
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -550,9 +543,9 @@ fun ProfileTab(onNavigateToSettings: () -> Unit) {
     }
 }
 
-// ──────────────────────────────────────────────────────────────
-// SHARED COMPONENTS
-// ──────────────────────────────────────────────────────────────
+
+//Shared components
+
 
 @Composable
 fun ListingCard(item: ListingItem, modifier: Modifier = Modifier) {
@@ -563,7 +556,7 @@ fun ListingCard(item: ListingItem, modifier: Modifier = Modifier) {
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column {
-            // Image placeholder
+            //Image placeholder
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -585,7 +578,7 @@ fun ListingCard(item: ListingItem, modifier: Modifier = Modifier) {
                     tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
                     modifier = Modifier.size(48.dp)
                 )
-                // Condition badge
+                //Condition badge
                 Surface(
                     color = when (item.condition) {
                         "Like New" -> Color(0xFF007AFF).copy(alpha = 0.15f)
@@ -613,7 +606,7 @@ fun ListingCard(item: ListingItem, modifier: Modifier = Modifier) {
                 }
             }
 
-            // Details
+            //Details
             Column(modifier = Modifier.padding(10.dp)) {
                 Text(
                     item.title,

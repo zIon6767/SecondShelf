@@ -1,6 +1,7 @@
 package com.example.secondshelf.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,10 +21,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.secondshelf.R
 import com.example.secondshelf.ui.AuthUiState
 import com.example.secondshelf.ui.AuthViewModel
 
@@ -67,7 +70,7 @@ fun RegisterScreen(
     ) {
         Spacer(modifier = Modifier.height(56.dp))
 
-        // ── Header ────────────────────────────────────────────────────────────
+        //Header
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = "Create Account",
@@ -83,7 +86,7 @@ fun RegisterScreen(
             )
         }
 
-        // Avatar circle
+        //Avatar circle
         Surface(
             shape = CircleShape,
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
@@ -101,7 +104,7 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ── API error card ────────────────────────────────────────────────────
+        //API error card
         AnimatedVisibility(visible = apiError.isNotEmpty()) {
             Surface(
                 color = MaterialTheme.colorScheme.errorContainer,
@@ -118,7 +121,7 @@ fun RegisterScreen(
             }
         }
 
-        // ── Full Name ─────────────────────────────────────────────────────────
+        //Full Name
         Column(modifier = Modifier.fillMaxWidth()) {
             Text("Full Name", style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -148,7 +151,7 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // ── Email ─────────────────────────────────────────────────────────────
+        //Email
         Column(modifier = Modifier.fillMaxWidth()) {
             Text("Email", style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -179,7 +182,7 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // ── Phone ─────────────────────────────────────────────────────────────
+        //Phone
         Column(modifier = Modifier.fillMaxWidth()) {
             Text("Phone Number", style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -206,7 +209,7 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // ── Continue button ───────────────────────────────────────────────────
+        //Continue button
         Button(
             onClick = {
                 var valid = true
@@ -230,7 +233,7 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ── Divider ───────────────────────────────────────────────────────────
+        //Divider
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Divider(modifier = Modifier.weight(1f), color = Color(0xFFE5E7EB))
             Text("  or sign up with  ",
@@ -241,7 +244,7 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ── Google Sign-Up button ─────────────────────────────────────────────
+        //Google Sign-Up button
         OutlinedButton(
             onClick = { viewModel.signInWithGoogle(context) },
             modifier = Modifier
@@ -253,15 +256,19 @@ fun RegisterScreen(
             border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.5.dp),
             enabled = !isLoading
         ) {
-            Text("G", fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF4285F4), fontSize = 18.sp)
+            Image(
+                painter = painterResource(id = R.drawable.google_favicon_2025),
+                contentDescription = "google logo",
+                modifier = Modifier
+                    .size(20.dp)
+            )
             Spacer(modifier = Modifier.width(10.dp))
             Text("Sign up with Google", fontSize = 15.sp, fontWeight = FontWeight.Medium)
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ── Login link ────────────────────────────────────────────────────────
+        //Login link
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
