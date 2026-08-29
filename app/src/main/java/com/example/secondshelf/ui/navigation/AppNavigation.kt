@@ -3,12 +3,15 @@ package com.example.secondshelf.ui.navigation
 import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.secondshelf.ui.AuthUiState
 import com.example.secondshelf.ui.AuthViewModel
 import com.example.secondshelf.ui.screens.*
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
@@ -18,9 +21,21 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
     val marketplaceViewModel: MarketplaceViewModel = viewModel()
+    val authUiState by authViewModel.uiState.collectAsState()
 
+    // Trigger OAuth token exchange when the deep-link arrives
     LaunchedEffect(authCallbackUri) {
         authCallbackUri?.let { authViewModel.handleAuthCallback(it) }
+    }
+
+    // Navigate to Home after a successful Google (or any) OAuth callback
+    LaunchedEffect(authUiState) {
+        if (authUiState is AuthUiState.Success) {
+            authViewModel.resetState()
+            navController.navigate("home") {
+                popUpTo(0) { inclusive = true }
+            }
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -97,6 +112,7 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
         composable("home") {
             HomeScreen(
                 viewModel = marketplaceViewModel,
+                userName = authViewModel.getUserFullName(),
                 onNavigateToNotifications = { navController.navigate("notifications") },
                 onNavigateToMarketplace = { navController.navigate("marketplace") },
                 onNavigateToListing = { id -> navController.navigate("listing/$id") },

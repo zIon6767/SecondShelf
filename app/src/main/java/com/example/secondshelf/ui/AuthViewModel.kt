@@ -7,9 +7,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.secondshelf.BuildConfig
 import com.example.secondshelf.supabase
-import io.github.jan.supabase.gotrue.auth
-import io.github.jan.supabase.gotrue.providers.builtin.Email
-import io.github.jan.supabase.gotrue.parseSessionFromUrl
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.parseSessionFromUrl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,6 +25,7 @@ sealed class AuthUiState {
     object Loading : AuthUiState()
     object Success : AuthUiState()
     data class Error(val message: String) : AuthUiState()
+    data class EmailConfirmationRequired(val email: String) : AuthUiState()
 }
 
 // ── ViewModel ─────────────────────────────────────────────────────────────────
@@ -100,10 +101,25 @@ class AuthViewModel : ViewModel() {
                     }
                 }
             }.onSuccess {
-                _uiState.value = AuthUiState.Success
+                // If email confirmation is required, the session will be null
+                if (supabase.auth.currentSessionOrNull() == null) {
+                    _uiState.value = AuthUiState.EmailConfirmationRequired(email)
+                } else {
+                    _uiState.value = AuthUiState.Success
+                }
             }.onFailure { e ->
                 setError(mapSignUpError(e))
             }
+        }
+    }
+
+    // ── Sign Out ──────────────────────────────────────────────────────────────
+
+    /** Signs out the current user and resets state. */
+    fun signOut() {
+        viewModelScope.launch {
+            runCatching { supabase.auth.signOut() }
+            _uiState.value = AuthUiState.Idle
         }
     }
 
@@ -135,8 +151,7 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             runCatching {
-                val session = supabase.auth.parseSessionFromUrl(uri.toString())
-                supabase.auth.importSession(session)
+                supabase.auth.parseSessionFromUrl(uri.toString())
             }.onSuccess {
                 _uiState.value = AuthUiState.Success
             }.onFailure { e ->

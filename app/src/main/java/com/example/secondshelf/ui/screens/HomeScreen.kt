@@ -28,6 +28,7 @@ import java.util.Calendar
 @Composable
 fun HomeScreen(
     viewModel: MarketplaceViewModel,
+    userName: String = "User",
     onNavigateToNotifications: () -> Unit,
     onNavigateToMarketplace: () -> Unit,
     onNavigateToListing: (String) -> Unit,
@@ -81,7 +82,7 @@ fun HomeScreen(
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
             when (selectedTab) {
-                0 -> HomeTab(viewModel, onNavigateToNotifications, onNavigateToMarketplace, onNavigateToListing)
+                0 -> HomeTab(viewModel, userName, onNavigateToNotifications, onNavigateToMarketplace, onNavigateToListing)
                 1 -> SearchTab(viewModel, onNavigateToListing)
                 2 -> ProfileTab(
                     viewModel,
@@ -117,6 +118,7 @@ private fun greeting(): String {
 @Composable
 private fun HomeTab(
     viewModel: MarketplaceViewModel,
+    userName: String,
     onNavigateToNotifications: () -> Unit,
     onNavigateToMarketplace: () -> Unit,
     onNavigateToListing: (String) -> Unit
@@ -134,8 +136,17 @@ private fun HomeTab(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text(greeting() + " 👋", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
-                Text("Second Shelf", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    text = greeting() + " 👋",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+                Text(
+                    text = userName,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
             }
             Box {
                 IconButton(
