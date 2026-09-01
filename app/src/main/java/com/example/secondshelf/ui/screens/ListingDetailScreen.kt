@@ -14,10 +14,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.secondshelf.ui.components.ConditionBadge
 import com.example.secondshelf.ui.model.formatPrice
 import com.example.secondshelf.ui.model.getSellerName
@@ -102,16 +104,25 @@ fun ListingDetailScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(220.dp)
+                    .height(240.dp)
                     .background(listing.cardColor),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.ShoppingBag,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                    modifier = Modifier.size(80.dp)
-                )
+                if (!listing.imageUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = listing.imageUrl,
+                        contentDescription = listing.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.ShoppingBag,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                        modifier = Modifier.size(80.dp)
+                    )
+                }
             }
 
             Column(modifier = Modifier.padding(20.dp)) {

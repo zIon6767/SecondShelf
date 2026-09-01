@@ -137,7 +137,7 @@ private fun HomeTab(
         ) {
             Column {
                 Text(
-                    text = greeting() + " 👋",
+                    text = greeting(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.secondary
                 )
@@ -360,11 +360,11 @@ private fun ProfileTab(
 
                 Spacer(Modifier.height(20.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    ProfileStat("${myListings.size}", "Listed Items")
+                    ProfileStat("${myListings.size}", "Listed Items", onClick = onNavigateToCreateListing)
                     VerticalDivider()
-                    ProfileStat("$savedCount", "Saved")
+                    ProfileStat("$savedCount", "Saved", onClick = onNavigateToSaved)
                     VerticalDivider()
-                    ProfileStat("${viewModel.conversations.size}", "Messages")
+                    ProfileStat("${viewModel.conversations.size}", "Messages", onClick = onNavigateToMessages)
                 }
             }
         }
@@ -372,7 +372,7 @@ private fun ProfileTab(
         Spacer(Modifier.height(16.dp))
 
         ProfileMenuSection {
-            ProfileMenuItem(Icons.Default.Inventory2, "My Listings", MaterialTheme.colorScheme.primary) {}
+            ProfileMenuItem(Icons.Default.Inventory2, "My Listings", MaterialTheme.colorScheme.primary, onClick = onNavigateToCreateListing)
             ProfileMenuItem(Icons.Default.Favorite, "Saved Items", Color(0xFFFF3B30), onNavigateToSaved)
             ProfileMenuItem(Icons.Default.Chat, "Messages", Color(0xFF5856D6), onNavigateToMessages)
             ProfileMenuItem(Icons.Default.Edit, "Edit Profile", Color(0xFF34C759), onNavigateToEditProfile)
@@ -419,8 +419,11 @@ private fun VerticalDivider() {
 }
 
 @Composable
-private fun ProfileStat(value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun ProfileStat(value: String, label: String, onClick: (() -> Unit)? = null) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+    ) {
         Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
     }

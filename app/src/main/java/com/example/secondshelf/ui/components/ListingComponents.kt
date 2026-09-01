@@ -23,6 +23,9 @@ import com.example.secondshelf.ui.model.Listing
 import com.example.secondshelf.ui.model.formatPrice
 import com.example.secondshelf.ui.model.getSellerName
 
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+
 @Composable
 fun ListingCard(
     listing: Listing,
@@ -47,12 +50,21 @@ fun ListingCard(
                     .background(listing.cardColor),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = categoryIcon(listing.category),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                    modifier = Modifier.size(48.dp)
-                )
+                if (!listing.imageUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = listing.imageUrl,
+                        contentDescription = listing.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(
+                        imageVector = categoryIcon(listing.category),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
                 ConditionBadge(
                     condition = listing.condition,
                     modifier = Modifier

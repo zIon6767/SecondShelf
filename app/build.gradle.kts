@@ -90,4 +90,7 @@ dependencies {
 
     // AndroidX Browser – Custom Tabs for Google OAuth redirect
     implementation(libs.androidx.browser)
+
+    // Coil for image loading
+    implementation(libs.coil.compose)
 }

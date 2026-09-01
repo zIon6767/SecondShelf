@@ -49,7 +49,8 @@ data class Listing(
     val sellerId: String,
     val location: String,
     val createdAt: String,
-    val cardColor: Color = Color(0xFFE8F0FE)
+    val cardColor: Color = Color(0xFFE8F0FE),
+    val imageUrl: String? = null
 )
 
 data class AppNotification(

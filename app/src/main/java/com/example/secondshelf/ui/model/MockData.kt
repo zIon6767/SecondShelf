@@ -26,7 +26,8 @@ val initialListings = listOf(
         sellerId = "user-2",
         location = "KL Main Campus",
         createdAt = "2026-08-24",
-        cardColor = Color(0xFFE8F0FE)
+        cardColor = Color(0xFFE8F0FE),
+        imageUrl = "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80"
     ),
     Listing(
         id = "listing-2",
@@ -38,7 +39,8 @@ val initialListings = listOf(
         sellerId = "user-5",
         location = "Perak Branch Campus",
         createdAt = "2026-08-23",
-        cardColor = Color(0xFFE8F0FE)
+        cardColor = Color(0xFFE8F0FE),
+        imageUrl = "https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=600&q=80"
     ),
     Listing(
         id = "listing-3",
@@ -50,7 +52,8 @@ val initialListings = listOf(
         sellerId = "user-3",
         location = "KL Main Campus",
         createdAt = "2026-08-22",
-        cardColor = Color(0xFFE8F0FE)
+        cardColor = Color(0xFFE8F0FE),
+        imageUrl = "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=600&q=80"
     ),
     Listing(
         id = "listing-4",
@@ -62,7 +65,8 @@ val initialListings = listOf(
         sellerId = "user-6",
         location = "KL Main Campus",
         createdAt = "2026-08-21",
-        cardColor = Color(0xFFE8F0FE)
+        cardColor = Color(0xFFE8F0FE),
+        imageUrl = "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?auto=format&fit=crop&w=600&q=80"
     ),
     Listing(
         id = "listing-5",
@@ -74,7 +78,8 @@ val initialListings = listOf(
         sellerId = "user-4",
         location = "KL Main Campus",
         createdAt = "2026-08-20",
-        cardColor = Color(0xFFE8F0FE)
+        cardColor = Color(0xFFE8F0FE),
+        imageUrl = "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=600&q=80"
     ),
 
     // ── Electronics ───────────────────────────────────────────────────────────
@@ -88,7 +93,8 @@ val initialListings = listOf(
         sellerId = "user-3",
         location = "KL Main Campus",
         createdAt = "2026-08-23",
-        cardColor = Color(0xFFFFF3E0)
+        cardColor = Color(0xFFFFF3E0),
+        imageUrl = "https://images.unsplash.com/photo-1587145820266-a5951ee6f620?auto=format&fit=crop&w=600&q=80"
     ),
     Listing(
         id = "listing-7",
@@ -100,7 +106,8 @@ val initialListings = listOf(
         sellerId = CURRENT_USER_ID,
         location = "KL Main Campus",
         createdAt = "2026-08-20",
-        cardColor = Color(0xFFFFF3E0)
+        cardColor = Color(0xFFFFF3E0),
+        imageUrl = "https://images.unsplash.com/photo-1625842268584-8f3296236761?auto=format&fit=crop&w=600&q=80"
     ),
     Listing(
         id = "listing-8",
@@ -112,7 +119,8 @@ val initialListings = listOf(
         sellerId = "user-4",
         location = "KL Main Campus",
         createdAt = "2026-08-19",
-        cardColor = Color(0xFFFFF3E0)
+        cardColor = Color(0xFFFFF3E0),
+        imageUrl = "https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?auto=format&fit=crop&w=600&q=80"
     ),
     Listing(
         id = "listing-9",
@@ -124,7 +132,8 @@ val initialListings = listOf(
         sellerId = "user-6",
         location = "KL Main Campus",
         createdAt = "2026-08-18",
-        cardColor = Color(0xFFFFF3E0)
+        cardColor = Color(0xFFFFF3E0),
+        imageUrl = "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=600&q=80"
     ),
 
     // ── Stationery ────────────────────────────────────────────────────────────
@@ -138,7 +147,8 @@ val initialListings = listOf(
         sellerId = "user-3",
         location = "KL Main Campus",
         createdAt = "2026-08-17",
-        cardColor = Color(0xFFFCE4EC)
+        cardColor = Color(0xFFFCE4EC),
+        imageUrl = "https://images.unsplash.com/photo-1531346878377-a5be20888e57?auto=format&fit=crop&w=600&q=80"
     ),
     Listing(
         id = "listing-11",
@@ -150,7 +160,8 @@ val initialListings = listOf(
         sellerId = "user-2",
         location = "KL Main Campus",
         createdAt = "2026-08-16",
-        cardColor = Color(0xFFFCE4EC)
+        cardColor = Color(0xFFFCE4EC),
+        imageUrl = "https://images.unsplash.com/photo-1585776245991-cf89dd7fc73a?auto=format&fit=crop&w=600&q=80"
     ),
 
     // ── Lab Equipment ─────────────────────────────────────────────────────────
@@ -164,7 +175,8 @@ val initialListings = listOf(
         sellerId = "user-5",
         location = "Perak Branch Campus",
         createdAt = "2026-08-15",
-        cardColor = Color(0xFFF3E8FF)
+        cardColor = Color(0xFFF3E8FF),
+        imageUrl = "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80"
     ),
     Listing(
         id = "listing-13",
@@ -176,7 +188,8 @@ val initialListings = listOf(
         sellerId = "user-4",
         location = "KL Main Campus",
         createdAt = "2026-08-14",
-        cardColor = Color(0xFFF3E8FF)
+        cardColor = Color(0xFFF3E8FF),
+        imageUrl = "https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80"
     ),
 
     // ── Clothing ──────────────────────────────────────────────────────────────
@@ -190,7 +203,8 @@ val initialListings = listOf(
         sellerId = "user-6",
         location = "KL Main Campus",
         createdAt = "2026-08-13",
-        cardColor = Color(0xFFE0F2FE)
+        cardColor = Color(0xFFE0F2FE),
+        imageUrl = "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&w=600&q=80"
     ),
     Listing(
         id = "listing-15",
@@ -202,7 +216,8 @@ val initialListings = listOf(
         sellerId = "user-5",
         location = "Perak Branch Campus",
         createdAt = "2026-08-12",
-        cardColor = Color(0xFFE0F2FE)
+        cardColor = Color(0xFFE0F2FE),
+        imageUrl = "https://images.unsplash.com/photo-1584467735815-f778f274e296?auto=format&fit=crop&w=600&q=80"
     ),
 
     // ── Furniture ─────────────────────────────────────────────────────────────
@@ -216,7 +231,8 @@ val initialListings = listOf(
         sellerId = "user-2",
         location = "KL Main Campus",
         createdAt = "2026-08-11",
-        cardColor = Color(0xFFFFF9C4)
+        cardColor = Color(0xFFFFF9C4),
+        imageUrl = "https://images.unsplash.com/photo-1534353436294-0dbd4bdac845?auto=format&fit=crop&w=600&q=80"
     ),
     Listing(
         id = "listing-17",
@@ -228,7 +244,8 @@ val initialListings = listOf(
         sellerId = "user-4",
         location = "KL Main Campus",
         createdAt = "2026-08-10",
-        cardColor = Color(0xFFFFF9C4)
+        cardColor = Color(0xFFFFF9C4),
+        imageUrl = "https://images.unsplash.com/photo-1584992236310-6edddc08acff?auto=format&fit=crop&w=600&q=80"
     ),
     Listing(
         id = "listing-18",
@@ -240,7 +257,8 @@ val initialListings = listOf(
         sellerId = "user-3",
         location = "KL Main Campus",
         createdAt = "2026-08-09",
-        cardColor = Color(0xFFFFF9C4)
+        cardColor = Color(0xFFFFF9C4),
+        imageUrl = "https://images.unsplash.com/photo-1580481077197-9f2997109594?auto=format&fit=crop&w=600&q=80"
     ),
 )
 

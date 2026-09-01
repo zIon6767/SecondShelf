@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun HeroBanner(onBrowseClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
+        onClick = onBrowseClick,
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 16.dp),
