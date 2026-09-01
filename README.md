@@ -1,20 +1,20 @@
 # Second Shelf
 
-A campus marketplace Android app where students can buy and sell used items — textbooks, electronics, stationery, lab equipment, and more.
+A campus marketplace Android app where students can buy and sell used items like textbooks, electronics, stationery, lab equipment, and more.
 
 Built with **Kotlin**, **Jetpack Compose**, and **Material 3**.
 
 ## Features
 
-- **Dashboard** — greeting, hero banner, category filters, recent listings
-- **Marketplace** — browse, search, filter by category/condition, sort by price/newest/relevance
-- **Listing details** — save, share, contact seller, edit/delete own listings
-- **Search** — product names, categories, sellers, keyword suggestions
-- **Profile** — user info, my listings, saved items, messages, settings, edit profile
-- **Create listing** — validated form with category, condition, price, location
-- **Messaging** — conversations with sellers, send/receive messages
-- **Notifications** — mark read, dismiss, unread badge on bell icon
-- **Auth** — Supabase email/password and Google OAuth
+- **Dashboard** : greeting, hero banner, category filters, recent listings
+- **Marketplace** : browse, search, filter by category/condition, sort by price/newest/relevance
+- **Listing details** : save, share, contact seller, edit/delete own listings
+- **Search** : product names, categories, sellers, keyword suggestions
+- **Profile** : user info, my listings, saved items, messages, settings, edit profile
+- **Create listing** : validated form with category, condition, price, location
+- **Messaging** : conversations with sellers, send/receive messages
+- **Notifications** : mark read, dismiss, unread badge on bell icon
+- **Auth** : Supabase email/password and Google OAuth
 
 ## Requirements
 
