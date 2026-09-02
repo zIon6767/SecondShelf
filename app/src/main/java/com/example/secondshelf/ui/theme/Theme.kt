@@ -22,12 +22,18 @@ private val LightColorScheme = lightColorScheme(
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryLight,
-    onPrimary = PrimaryDark,
-    background = TextMain,
-    onBackground = SurfaceWhite,
-    surface = Color(0xFF2C2C2E),
-    onSurface = SurfaceWhite,
+    primary = Color(0xFF388AF6),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFF1E3A5F),
+    onPrimaryContainer = Color(0xFFD6E4FF),
+    secondary = Color(0xFF9E9E9E),
+    onSecondary = Color.White,
+    background = Color(0xFF121212),
+    onBackground = Color(0xFFF2F2F7),
+    surface = Color(0xFF1E1E1E),
+    onSurface = Color(0xFFF2F2F7),
+    surfaceVariant = Color(0xFF2C2C2E),
+    onSurfaceVariant = Color(0xFFE5E5EA),
     error = DangerRed
 )
 

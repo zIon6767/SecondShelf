@@ -25,12 +25,17 @@ fun SettingsScreen(
     viewModel: MarketplaceViewModel,
     onNavigateBack: () -> Unit,
     onNavigateToEditProfile: () -> Unit,
+    onNavigateToMyListings: () -> Unit,
+    onNavigateToSaved: () -> Unit,
+    onNavigateToMessages: () -> Unit,
+    onNavigateToTerms: () -> Unit,
+    onNavigateToCampusSafety: () -> Unit,
+    onNavigateToAbout: () -> Unit,
     onLogout: () -> Unit,
     onDeleteAccount: () -> Unit
 ) {
     val user = viewModel.currentUser
     var notificationsEnabled by remember { mutableStateOf(true) }
-    var darkModeEnabled by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
 
@@ -56,7 +61,7 @@ fun SettingsScreen(
             title = { Text("Delete Account", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    "Are you sure you want to permanently delete your account?\n\nThis action cannot be undone. All your listings, messages, and profile data will be permanently deleted."
+                    "Are you sure you want to permanently delete your account?\n\nThis action cannot be undone. All your listings, messages, and profile data will be permanently cleared."
                 )
             },
             confirmButton = {
@@ -97,12 +102,22 @@ fun SettingsScreen(
             Text("Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
 
-        Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)
-        ) {
-            Spacer(Modifier.height(8.dp))
+        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
 
-            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+        ) {
+            Spacer(Modifier.height(16.dp))
+
+            // User Info Card
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp)) {
                         Box(contentAlignment = Alignment.Center) {
@@ -112,37 +127,56 @@ fun SettingsScreen(
                     Spacer(Modifier.width(14.dp))
                     Column {
                         Text(user.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(user.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
-                        Text(user.university, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                        if (user.email.isNotBlank()) {
+                            Text(user.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                        }
+                        Text(
+                            if (user.campus.isNotBlank()) "${user.university} • ${user.campus}" else user.university,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
                     }
                 }
             }
 
             Spacer(Modifier.height(24.dp))
-            SettingsSectionTitle("Account")
+            SettingsSectionTitle("Account & Marketplace")
             SettingsGroup {
-                SettingsNavItem(Icons.Default.Person, "Edit Profile", MaterialTheme.colorScheme.primary, onNavigateToEditProfile)
+                SettingsNavItem(Icons.Default.Edit, "Edit Profile", Color(0xFF34C759), onNavigateToEditProfile)
                 HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
-                SettingsNavItem(Icons.Default.Lock, "Privacy & Security", Color(0xFF5856D6)) {}
+                SettingsNavItem(Icons.Default.Inventory2, "My Listings", MaterialTheme.colorScheme.primary, onNavigateToMyListings)
+                HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
+                SettingsNavItem(Icons.Default.Favorite, "Saved Items", Color(0xFFFF3B30), onNavigateToSaved)
+                HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
+                SettingsNavItem(Icons.Default.Chat, "Messages", Color(0xFF5856D6), onNavigateToMessages)
             }
 
             Spacer(Modifier.height(20.dp))
             SettingsSectionTitle("Preferences")
             SettingsGroup {
-                SettingsToggleItem(Icons.Default.Notifications, "Notifications", notificationsEnabled, { notificationsEnabled = it }, Color(0xFFFF3B30))
-                HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
-                SettingsToggleItem(Icons.Default.DarkMode, "Dark Mode", darkModeEnabled, { darkModeEnabled = it }, Color(0xFF636366))
+                SettingsToggleItem(
+                    Icons.Default.Notifications,
+                    "Push Notifications",
+                    notificationsEnabled,
+                    {
+                        notificationsEnabled = it
+                        viewModel.showToast(if (it) "Notifications enabled" else "Notifications muted")
+                    },
+                    Color(0xFFFF9500)
+                )
             }
 
             Spacer(Modifier.height(20.dp))
-            SettingsSectionTitle("Support")
+            SettingsSectionTitle("Trust & Safety")
             SettingsGroup {
-                SettingsNavItem(Icons.Default.HelpOutline, "Help & Support", Color(0xFF34C759)) {}
+                SettingsNavItem(Icons.Default.Description, "Terms & Conditions", MaterialTheme.colorScheme.primary, onNavigateToTerms)
                 HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
-                SettingsNavItem(Icons.Default.Info, "About Second Shelf", MaterialTheme.colorScheme.primary) {}
+                SettingsNavItem(Icons.Default.Shield, "Campus Safety & Meetup Tips", Color(0xFF007AFF), onNavigateToCampusSafety)
+                HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
+                SettingsNavItem(Icons.Default.Info, "About Second Shelf", Color(0xFF5856D6), onNavigateToAbout)
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(24.dp))
             SettingsGroup {
                 Row(
                     modifier = Modifier
@@ -179,8 +213,6 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-            Text("Second Shelf v1.0.0", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f), modifier = Modifier.align(Alignment.CenterHorizontally))
             Spacer(Modifier.height(32.dp))
         }
     }
@@ -188,43 +220,98 @@ fun SettingsScreen(
 
 @Composable
 private fun SettingsSectionTitle(title: String) {
-    Text(title.uppercase(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary, letterSpacing = 1.2.sp, modifier = Modifier.padding(bottom = 8.dp, start = 4.dp))
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.secondary,
+        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+    )
 }
 
 @Composable
 private fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface
+    ) {
         Column(content = content)
     }
 }
 
 @Composable
-private fun SettingsNavItem(icon: ImageVector, label: String, iconColor: Color, onClick: () -> Unit = {}) {
+private fun SettingsNavItem(
+    icon: ImageVector,
+    label: String,
+    iconColor: Color,
+    onClick: () -> Unit
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(shape = RoundedCornerShape(10.dp), color = iconColor.copy(alpha = 0.12f), modifier = Modifier.size(36.dp)) {
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = iconColor.copy(alpha = 0.12f),
+            modifier = Modifier.size(36.dp)
+        ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
+                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
             }
         }
         Spacer(Modifier.width(14.dp))
-        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Icon(Icons.Default.ArrowForward, contentDescription = null, tint = Color(0xFFD1D5DB), modifier = Modifier.size(14.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = Color(0xFFC7C7CC),
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 
 @Composable
-private fun SettingsToggleItem(icon: ImageVector, label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, iconColor: Color) {
-    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Surface(shape = RoundedCornerShape(10.dp), color = iconColor.copy(alpha = 0.12f), modifier = Modifier.size(36.dp)) {
+private fun SettingsToggleItem(
+    icon: ImageVector,
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    iconColor: Color
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = iconColor.copy(alpha = 0.12f),
+            modifier = Modifier.size(36.dp)
+        ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
+                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
             }
         }
         Spacer(Modifier.width(14.dp))
-        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onCheckedChange, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = MaterialTheme.colorScheme.primary))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = MaterialTheme.colorScheme.primary)
+        )
     }
 }

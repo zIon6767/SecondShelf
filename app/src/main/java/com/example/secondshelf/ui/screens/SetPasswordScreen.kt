@@ -2,6 +2,7 @@ package com.example.secondshelf.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,7 +43,8 @@ fun SetPasswordScreen(
     userEmail: String = "",
     userPhone: String = "",
     onNavigateToHome: () -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToTerms: () -> Unit = {}
 ) {
     var password        by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
@@ -236,29 +238,32 @@ fun SetPasswordScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // ── Terms checkbox ────────────────────────────────────────────────────
-        Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
+        val primaryColor = MaterialTheme.colorScheme.primary
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Checkbox(
                 checked = agreeToTerms,
                 onCheckedChange = { agreeToTerms = it },
                 enabled = !isLoading,
-                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+                colors = CheckboxDefaults.colors(checkedColor = primaryColor)
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                buildAnnotatedString {
+                text = buildAnnotatedString {
                     append("I agree to the ")
-                    withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)) {
-                        append("Terms of Service")
-                    }
-                    append(" and ")
-                    withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)) {
-                        append("Privacy Policy")
+                    withStyle(
+                        SpanStyle(
+                            color = primaryColor,
+                            fontWeight = FontWeight.SemiBold,
+                            textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                        )
+                    ) {
+                        append("Terms & Conditions")
                     }
                     append(" of Second Shelf")
                 },
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.padding(top = 14.dp)
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.clickable { onNavigateToTerms() }
             )
         }
 
