@@ -11,6 +11,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -93,7 +94,7 @@ dependencies {
     // ViewModel in Compose
     implementation(libs.lifecycle.viewmodel.compose)
 
-    // AndroidX Browser – Custom Tabs for Google OAuth redirect
+    // AndroidX Browser - Custom Tabs for Google OAuth redirect
     implementation(libs.androidx.browser)
 
     // Coil for image loading
