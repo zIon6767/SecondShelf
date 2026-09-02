@@ -38,20 +38,20 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
         }
     }
 
+    LaunchedEffect(Unit) {
+        if (authViewModel.isLoggedIn()) {
+            navController.navigate("home") {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
+
     NavHost(navController = navController, startDestination = "splash") {
 
         composable("splash") {
             SplashScreen(
-                onSplashFinished = {
-                    if (authViewModel.isLoggedIn()) {
-                        navController.navigate("home") {
-                            popUpTo("splash") { inclusive = true }
-                        }
-                    } else {
-                        navController.navigate("onboarding") {
-                            popUpTo("splash") { inclusive = true }
-                        }
-                    }
+                onNavigateToOnboarding = {
+                    navController.navigate("onboarding") { popUpTo("splash") { inclusive = true } }
                 }
             )
         }
@@ -113,7 +113,6 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
             HomeScreen(
                 viewModel = marketplaceViewModel,
                 userName = authViewModel.getUserFullName(),
-                userEmail = authViewModel.getUserEmail(),
                 onNavigateToNotifications = { navController.navigate("notifications") },
                 onNavigateToMarketplace = { navController.navigate("marketplace") },
                 onNavigateToListing = { id -> navController.navigate("listing/$id") },

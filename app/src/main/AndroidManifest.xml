@@ -10,7 +10,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="SecondShelf"
         android:supportsRtl="true"
-        android:theme="@style/Theme.SecondShelf">
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
             android:name="com.example.secondshelf.MainActivity"
             android:exported="true"

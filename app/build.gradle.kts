@@ -30,8 +30,13 @@ android {
         }
 
         // Inject Supabase credentials into BuildConfig
-        buildConfigField("String", "SUPABASE_URL",  "\"${localProperties["SUPABASE_URL"]  ?: ""}\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProperties["SUPABASE_ANON_KEY"] ?: ""}\"")
+        val supabaseUrl = (localProperties["SUPABASE_URL"] as? String)?.takeIf { it.isNotBlank() }
+            ?: "https://rokxuouzgbzrveoqvobw.supabase.co"
+        val supabaseAnonKey = (localProperties["SUPABASE_ANON_KEY"] as? String)?.takeIf { it.isNotBlank() }
+            ?: "sb_publishable_6xJKsWiMnr1hFhqDQDub8w_esOkF8_7"
+
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
     }
 
     buildTypes {

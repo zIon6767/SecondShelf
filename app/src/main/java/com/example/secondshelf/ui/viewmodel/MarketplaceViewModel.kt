@@ -9,22 +9,8 @@ import java.util.UUID
 
 class MarketplaceViewModel : ViewModel() {
 
-    private var isProfileManuallyEdited = false
-
     var currentUser by mutableStateOf(mockUsers.first { it.id == CURRENT_USER_ID })
         private set
-
-    fun syncAuthUser(fullName: String, email: String = "") {
-        if (!isProfileManuallyEdited) {
-            val updatedName = if (fullName.isNotBlank() && fullName != "User") fullName.trim() else currentUser.name
-            val updatedEmail = if (email.isNotBlank() && email != "user@example.com") email.trim() else currentUser.email
-            currentUser = currentUser.copy(
-                name = updatedName,
-                email = updatedEmail,
-                avatarInitial = updatedName.firstOrNull()?.uppercaseChar()?.toString() ?: "U"
-            )
-        }
-    }
 
     var listings by mutableStateOf(initialListings)
         private set
@@ -286,7 +272,6 @@ class MarketplaceViewModel : ViewModel() {
     fun updateProfile(name: String, email: String, university: String, campus: String): String? {
         if (name.isBlank()) return "Name is required"
         if (email.isBlank()) return "Email is required"
-        isProfileManuallyEdited = true
         currentUser = currentUser.copy(
             name = name.trim(),
             email = email.trim(),

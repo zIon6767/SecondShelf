@@ -14,7 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -30,7 +29,6 @@ import java.util.Calendar
 fun HomeScreen(
     viewModel: MarketplaceViewModel,
     userName: String = "User",
-    userEmail: String = "",
     onNavigateToNotifications: () -> Unit,
     onNavigateToMarketplace: () -> Unit,
     onNavigateToListing: (String) -> Unit,
@@ -43,10 +41,6 @@ fun HomeScreen(
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
-
-    LaunchedEffect(userName, userEmail) {
-        viewModel.syncAuthUser(userName, userEmail)
-    }
 
     LaunchedEffect(viewModel.toastMessage) {
         viewModel.toastMessage?.let {
@@ -115,9 +109,9 @@ private fun navColors() = NavigationBarItemDefaults.colors(
 private fun greeting(): String {
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     return when {
-        hour < 12 -> "Good Morning"
-        hour < 17 -> "Good Afternoon"
-        else -> "Good Evening"
+        hour < 12 -> "Good morning"
+        hour < 17 -> "Good afternoon"
+        else -> "Good evening"
     }
 }
 
@@ -129,67 +123,78 @@ private fun HomeTab(
     onNavigateToMarketplace: () -> Unit,
     onNavigateToListing: (String) -> Unit
 ) {
-    val user = viewModel.currentUser
-    val displayName = user.name.ifBlank { if (userName.isNotBlank() && userName != "User") userName else "Student" }
     val category = viewModel.homeCategory
     val filtered = viewModel.filterListings(ListingFilters(category = category))
     val unreadCount = viewModel.getUnreadNotificationCount()
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        // ── Formal & Refined Welcome Section ──
-        Column(
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 12.dp)
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = greeting(),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-                letterSpacing = (-0.5).sp
-            )
-
-            Row(
-                modifier = Modifier.padding(top = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Column {
                 Text(
-                    text = displayName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
+                    text = greeting(),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.secondary
                 )
-
-                if (user.university.isNotBlank()) {
-                    Box(
+                Text(
+                    text = userName,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            }
+            Box {
+                IconButton(
+                    onClick = onNavigateToNotifications,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                ) {
+                    Icon(Icons.Default.Notifications, contentDescription = "Notifications", tint = MaterialTheme.colorScheme.primary)
+                }
+                if (unreadCount > 0) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFFFF3B30),
                         modifier = Modifier
-                            .size(4.dp)
-                            .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f), CircleShape)
-                    )
-                    Text(
-                        text = user.university,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Normal,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
+                            .align(Alignment.TopEnd)
+                            .size(18.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                if (unreadCount > 9) "9+" else "$unreadCount",
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
         }
 
-        Text(
-            "Categories",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 20.dp, top = 6.dp, bottom = 12.dp)
-        )
-        CategorySelector(
-            selected = category,
-            onSelect = viewModel::updateHomeCategory
-        )
+        Divider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
 
-        HeroBanner(onBrowseClick = onNavigateToMarketplace)
+        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            HeroBanner(onBrowseClick = onNavigateToMarketplace)
+
+            Text(
+                "Categories",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 20.dp, bottom = 12.dp)
+            )
+            CategorySelector(
+                selected = category,
+                onSelect = viewModel::updateHomeCategory
+            )
+
+            Spacer(Modifier.height(16.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
@@ -218,6 +223,7 @@ private fun HomeTab(
             }
             Spacer(Modifier.height(16.dp))
         }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

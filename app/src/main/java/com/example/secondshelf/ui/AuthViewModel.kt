@@ -45,9 +45,6 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    private var lastEnteredFullName: String = ""
-    private var lastEnteredEmail: String = ""
-
     // ── Session check ─────────────────────────────────────────────────────────
 
     /** Returns true if a valid Supabase session already exists (persisted login). */
@@ -56,22 +53,13 @@ class AuthViewModel : ViewModel() {
     /** Returns the full name of the currently logged-in user from metadata. */
     fun getUserFullName(): String {
         val user = supabase.auth.currentUserOrNull()
-        val metaName = user?.userMetadata?.get("full_name")?.toString()?.trim('"')
-            ?: user?.userMetadata?.get("name")?.toString()?.trim('"')
-            ?: user?.userMetadata?.get("user_name")?.toString()?.trim('"')
-            ?: user?.userMetadata?.get("preferred_username")?.toString()?.trim('"')
-        if (!metaName.isNullOrBlank() && metaName != "null") return metaName
-        if (lastEnteredFullName.isNotBlank()) return lastEnteredFullName
-        return "User"
+        val fullName = user?.userMetadata?.get("full_name")?.toString()?.trim('"')
+        return if (fullName.isNullOrBlank() || fullName == "null") "User" else fullName
     }
 
     /** Returns the email of the currently logged-in user. */
     fun getUserEmail(): String {
-        val user = supabase.auth.currentUserOrNull()
-        val email = user?.email
-        if (!email.isNullOrBlank() && email != "null") return email
-        if (lastEnteredEmail.isNotBlank()) return lastEnteredEmail
-        return "user@example.com"
+        return supabase.auth.currentUserOrNull()?.email ?: "user@example.com"
     }
 
     // ── Email / Password Auth ─────────────────────────────────────────────────
@@ -81,7 +69,6 @@ class AuthViewModel : ViewModel() {
      * Surfaces a clear "not registered" message when credentials are unrecognised.
      */
     fun signIn(email: String, password: String) {
-        lastEnteredEmail = email.trim()
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             runCatching {
@@ -102,8 +89,6 @@ class AuthViewModel : ViewModel() {
      * Called from SetPasswordScreen after the user completes the two-step register flow.
      */
     fun signUp(email: String, password: String, fullName: String, phone: String) {
-        lastEnteredFullName = fullName.trim()
-        lastEnteredEmail = email.trim()
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             runCatching {
@@ -111,9 +96,8 @@ class AuthViewModel : ViewModel() {
                     this.email    = email
                     this.password = password
                     data = buildJsonObject {
-                        put("full_name", fullName.trim())
-                        put("name",      fullName.trim())
-                        put("phone",     phone.trim())
+                        put("full_name", fullName)
+                        put("phone",     phone)
                     }
                 }
             }.onSuccess {
@@ -133,8 +117,6 @@ class AuthViewModel : ViewModel() {
 
     /** Signs out the current user and resets state. */
     fun signOut() {
-        lastEnteredFullName = ""
-        lastEnteredEmail = ""
         viewModelScope.launch {
             runCatching { supabase.auth.signOut() }
             _uiState.value = AuthUiState.Idle
@@ -154,9 +136,7 @@ class AuthViewModel : ViewModel() {
     fun signInWithGoogle(context: Context) {
         val oauthUrl = "${BuildConfig.SUPABASE_URL}/auth/v1/authorize" +
             "?provider=google" +
-            "&redirect_to=secondshelf%3A%2F%2Fauth-callback" +
-            "&prompt=select_account%20consent" +
-            "&queryParams=prompt%3Dselect_account%2520consent"
+            "&redirect_to=secondshelf%3A%2F%2Fauth-callback"
         CustomTabsIntent.Builder()
             .setShowTitle(true)
             .build()
