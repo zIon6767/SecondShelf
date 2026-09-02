@@ -256,7 +256,11 @@ fun CompleteProfileScreen(
                         fullName = fullName.trim(),
                         campus = selectedCampus
                     ) {
-                        marketplaceViewModel.syncAuthUser(fullName.trim(), email)
+                        marketplaceViewModel.syncAuthUser(
+                            name = fullName.trim(),
+                            email = email,
+                            campus = selectedCampus
+                        )
                         onNavigateToHome()
                     }
                 },
