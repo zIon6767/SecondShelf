@@ -4,6 +4,7 @@
         <item name="android:windowBackground">@color/primary_blue</item>
         <item name="android:windowSplashScreenBackground">@color/primary_blue</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/transparent_splash</item>
+        <item name="android:windowSplashScreenAnimationDuration">0</item>
         <item name="android:windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
     </style>
 </resources>
