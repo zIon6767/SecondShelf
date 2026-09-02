@@ -1,5 +1,7 @@
 package com.example.secondshelf.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,9 +19,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
+
+// ==============================================================================
+// 1. MAIN SETTINGS SCREEN
+// ==============================================================================
 
 @Composable
 fun SettingsScreen(
@@ -39,6 +47,7 @@ fun SettingsScreen(
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
 
+    // Logout Confirmation Dialog
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
@@ -55,36 +64,27 @@ fun SettingsScreen(
         )
     }
 
+    // Delete Account Confirmation Dialog
     if (showDeleteAccountDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteAccountDialog = false },
             title = { Text("Delete Account", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) },
             text = {
-                Text(
-                    "Are you sure you want to permanently delete your account?\n\nThis action cannot be undone. All your listings, messages, and profile data will be permanently cleared."
-                )
+                Text("Are you sure you want to permanently delete your account?\n\nThis action cannot be undone. All your listings, messages, and profile data will be permanently cleared.")
             },
             confirmButton = {
                 Button(
-                    onClick = {
-                        showDeleteAccountDialog = false
-                        onDeleteAccount()
-                    },
+                    onClick = { showDeleteAccountDialog = false; onDeleteAccount() },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Delete Account", fontWeight = FontWeight.Bold, color = Color.White)
-                }
+                ) { Text("Delete Account", fontWeight = FontWeight.Bold, color = Color.White) }
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteAccountDialog = false }) {
-                    Text("Cancel")
-                }
-            },
+            dismissButton = { TextButton(onClick = { showDeleteAccountDialog = false }) { Text("Cancel") } },
             shape = RoundedCornerShape(16.dp)
         )
     }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        // Top Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -112,7 +112,7 @@ fun SettingsScreen(
         ) {
             Spacer(Modifier.height(16.dp))
 
-            // User Info Card
+            // User Info Summary Card
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surface,
@@ -155,14 +155,14 @@ fun SettingsScreen(
             SettingsSectionTitle("Preferences")
             SettingsGroup {
                 SettingsToggleItem(
-                    Icons.Default.Notifications,
-                    "Push Notifications",
-                    notificationsEnabled,
-                    {
+                    icon = Icons.Default.Notifications,
+                    label = "Push Notifications",
+                    checked = notificationsEnabled,
+                    onCheckedChange = {
                         notificationsEnabled = it
                         viewModel.showToast(if (it) "Notifications enabled" else "Notifications muted")
                     },
-                    Color(0xFFFF9500)
+                    iconColor = Color(0xFFFF9500)
                 )
             }
 
@@ -218,6 +218,367 @@ fun SettingsScreen(
     }
 }
 
+// ==============================================================================
+// 2. CHAT & MESSAGE SETTINGS SCREEN
+// ==============================================================================
+
+@Composable
+fun ChatSettingsScreen(
+    viewModel: MarketplaceViewModel,
+    onNavigateBack: () -> Unit
+) {
+    var messageNotifications by remember { mutableStateOf(true) }
+    var messagePreviews by remember { mutableStateOf(true) }
+    var inAppSound by remember { mutableStateOf(true) }
+    var readReceipts by remember { mutableStateOf(true) }
+    var onlineStatus by remember { mutableStateOf(true) }
+    var autoReplyEnabled by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = onNavigateBack,
+                modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+            ) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+            }
+            Spacer(Modifier.width(12.dp))
+            Text("Chat & Message Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+
+        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            Column {
+                SettingsSectionTitle("Notifications & Alerts")
+                SettingsGroup {
+                    ChatToggleRow(Icons.Outlined.Notifications, Color(0xFFFF9500), "Message Notifications", "Receive alerts for incoming student inquiries", messageNotifications) {
+                        messageNotifications = it
+                        viewModel.showToast(if (it) "Chat notifications enabled" else "Chat notifications muted")
+                    }
+                    HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
+                    ChatToggleRow(Icons.Outlined.Visibility, Color(0xFF007AFF), "Message Previews", "Show sender name and message preview in alerts", messagePreviews) { messagePreviews = it }
+                    HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
+                    ChatToggleRow(Icons.Outlined.VolumeUp, Color(0xFF5856D6), "In-App Sounds", "Play subtle sound when sending and receiving chats", inAppSound) { inAppSound = it }
+                }
+            }
+
+            Column {
+                SettingsSectionTitle("Privacy & Status")
+                SettingsGroup {
+                    ChatToggleRow(Icons.Outlined.DoneAll, Color(0xFF34C759), "Read Receipts", "Let buyers and sellers know when you've seen their messages", readReceipts) { readReceipts = it }
+                    HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
+                    ChatToggleRow(Icons.Outlined.AccountCircle, Color(0xFF007AFF), "Online Activity Status", "Show when you are active on campus marketplace", onlineStatus) { onlineStatus = it }
+                }
+            }
+
+            Column {
+                SettingsSectionTitle("Automated Responses")
+                SettingsGroup {
+                    ChatToggleRow(Icons.Outlined.SmartToy, Color(0xFF5856D6), "Instant Inquiry Greeting", "Auto-reply when a student first messages about your listing", autoReplyEnabled) {
+                        autoReplyEnabled = it
+                        viewModel.showToast(if (it) "Auto-greeting enabled" else "Auto-greeting disabled")
+                    }
+                }
+            }
+
+            Column {
+                SettingsSectionTitle("Data & Safety")
+                SettingsGroup {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.showToast("Chat temporary cache cleared.") }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFF636366).copy(alpha = 0.12f), modifier = Modifier.size(32.dp)) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Outlined.CleaningServices, contentDescription = null, tint = Color(0xFF636366), modifier = Modifier.size(18.dp))
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Clear Chat Cache", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Free up storage without deleting messages", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                        }
+                    }
+
+                    HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.showToast("No blocked users.") }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFFFF3B30).copy(alpha = 0.12f), modifier = Modifier.size(32.dp)) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Outlined.Block, contentDescription = null, tint = Color(0xFFFF3B30), modifier = Modifier.size(18.dp))
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Blocked Accounts", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Manage blocked student profiles", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+// ==============================================================================
+// 3. CAMPUS SAFETY & MEETUP TIPS SCREEN
+// ==============================================================================
+
+@Composable
+fun CampusSafetyScreen(
+    onNavigateBack: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = onNavigateBack,
+                modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+            ) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+            }
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text("Campus Safety Tips", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("Guidelines for safe student trading", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+            }
+        }
+
+        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Surface(
+                color = Color(0xFF007AFF).copy(alpha = 0.08f),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, Color(0xFF007AFF).copy(alpha = 0.2f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Shield, contentDescription = null, tint = Color(0xFF007AFF), modifier = Modifier.size(32.dp))
+                    Spacer(Modifier.width(14.dp))
+                    Column {
+                        Text("Safety First on Campus", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF007AFF))
+                        Text("Follow these golden rules whenever buying or selling items with fellow students.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            SafetyTipCard(Icons.Outlined.LocationOn, Color(0xFF34C759), "1. Meet in Populated Campus Areas", "Schedule meetups during daytime in high-traffic campus locations such as the Library Lobby, Cafeteria concourse, or Student Activity Centre.")
+            SafetyTipCard(Icons.Outlined.Visibility, Color(0xFF007AFF), "2. Inspect Items in Person", "Thoroughly test electronics and inspect books before paying. Ensure the condition matches the description.")
+            SafetyTipCard(Icons.Outlined.Payments, Color(0xFFFF9500), "3. Pay Only Upon Handover", "Never pay advance booking deposits. Pay via DuitNow QR or cash strictly on-the-spot after verifying the item.")
+            SafetyTipCard(Icons.Outlined.People, Color(0xFF5856D6), "4. Bring a Friend (Buddy System)", "If meeting in late afternoon or trading high-value gadgets, invite a classmate to accompany you.")
+            SafetyTipCard(Icons.Outlined.Report, Color(0xFFFF3B30), "5. Trust Your Instincts & Report", "If someone acts suspiciously or changes meeting spots to isolated areas, cancel the deal and report the account.")
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("TAR UMT Campus Security", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(4.dp))
+                    Text("In case of safety concerns, contact the Security Department at the Main Security Post.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                }
+            }
+        }
+    }
+}
+
+// ==============================================================================
+// 4. ABOUT SECOND SHELF SCREEN
+// ==============================================================================
+
+@Composable
+fun AboutScreen(
+    onNavigateBack: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = onNavigateBack,
+                modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+            ) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+            }
+            Spacer(Modifier.width(12.dp))
+            Text("About Second Shelf", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+
+        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Spacer(Modifier.height(8.dp))
+
+            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(80.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.MenuBook, contentDescription = null, tint = Color.White, modifier = Modifier.size(40.dp))
+                }
+            }
+
+            Text("Second Shelf", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text("Version 1.0.0 (Build 2026.09)\nMade for TAR UMT Campus Community", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary, textAlign = TextAlign.Center)
+
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Text("Our Mission", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Second Shelf is built for university students to buy, sell, and rehome academic books, calculators, and essentials affordably within our campus community.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.secondary,
+                        lineHeight = 22.sp
+                    )
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Text("Key Highlights", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    AboutRow(Icons.Outlined.School, Color(0xFF007AFF), "Verified Student Community", "Exclusive access with @student.tarc.edu.my credentials.")
+                    AboutRow(Icons.Outlined.Percent, Color(0xFF34C759), "0% Commission & Fees", "Free to list and sell with 100% earnings kept by students.")
+                    AboutRow(Icons.Outlined.Handshake, Color(0xFFFF9500), "Direct On-Campus Meetups", "Convenient handovers without shipping costs.")
+                    AboutRow(Icons.Outlined.Star, Color(0xFFFFB800), "Peer Ratings & Reviews", "Transparent student feedback to ensure safety and trust.")
+                }
+            }
+
+            Text("© 2026 Second Shelf • All rights reserved", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(top = 12.dp, bottom = 16.dp))
+        }
+    }
+}
+
+// ==============================================================================
+// 5. TERMS AND CONDITIONS SCREEN
+// ==============================================================================
+
+@Composable
+fun TermsAndConditionsScreen(
+    onNavigateBack: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = onNavigateBack,
+                modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+            ) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+            }
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text("Terms & Conditions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("Last updated: September 2026", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+            }
+        }
+
+        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Surface(
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.VerifiedUser, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text("By using Second Shelf, you agree to comply with our campus trading policies.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            TermsCard(Icons.Outlined.School, "1. Student Eligibility & Registration", "Second Shelf is a dedicated campus marketplace for students. You must provide a valid @student.tarc.edu.my email address.")
+            TermsCard(Icons.Outlined.Storefront, "2. Marketplace Listings & Honest Descriptions", "Sellers must provide accurate descriptions and photos. Misrepresenting items, selling counterfeit products, exam leakages, or hazardous items is strictly prohibited.")
+            TermsCard(Icons.Outlined.Handshake, "3. Campus Meetups & Transactions", "All transactions are negotiated directly between students. Always inspect the item before paying via cash or DuitNow QR.")
+            TermsCard(Icons.Outlined.Shield, "4. User Conduct & Community Safety", "Zero tolerance for harassment, abuse, discrimination, or scams. Violations lead to immediate account suspension.")
+            TermsCard(Icons.Outlined.Lock, "5. Account Management & Privacy", "You retain the right to edit your profile or permanently delete your account at any time through Settings.")
+            TermsCard(Icons.Outlined.Gavel, "6. Limitation of Liability", "Second Shelf provides the connection platform and is not liable for individual peer-to-peer disputes.")
+
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = onNavigateBack,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().height(50.dp)
+            ) {
+                Text("I Understand & Accept", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+// ==============================================================================
+// REUSABLE HELPER UI COMPONENTS
+// ==============================================================================
+
 @Composable
 private fun SettingsSectionTitle(title: String) {
     Text(
@@ -233,7 +594,8 @@ private fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(0.5.dp, Color(0xFFE5E7EB))
     ) {
         Column(content = content)
     }
@@ -263,18 +625,8 @@ private fun SettingsNavItem(
             }
         }
         Spacer(Modifier.width(14.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f)
-        )
-        Icon(
-            imageVector = Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = Color(0xFFC7C7CC),
-            modifier = Modifier.size(20.dp)
-        )
+        Text(text = label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFFC7C7CC), modifier = Modifier.size(20.dp))
     }
 }
 
@@ -302,16 +654,114 @@ private fun SettingsToggleItem(
             }
         }
         Spacer(Modifier.width(14.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f)
-        )
+        Text(text = label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = MaterialTheme.colorScheme.primary)
         )
+    }
+}
+
+@Composable
+private fun ChatToggleRow(
+    icon: ImageVector,
+    iconColor: Color,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = iconColor.copy(alpha = 0.12f),
+            modifier = Modifier.size(32.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary, lineHeight = 16.sp)
+        }
+        Spacer(Modifier.width(8.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = MaterialTheme.colorScheme.primary)
+        )
+    }
+}
+
+@Composable
+private fun SafetyTipCard(
+    icon: ImageVector,
+    iconColor: Color,
+    title: String,
+    content: String
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(shape = RoundedCornerShape(8.dp), color = iconColor.copy(alpha = 0.12f), modifier = Modifier.size(32.dp)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(content, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary, lineHeight = 20.sp)
+        }
+    }
+}
+
+@Composable
+private fun AboutRow(icon: ImageVector, iconColor: Color, title: String, description: String) {
+    Row(verticalAlignment = Alignment.Top) {
+        Surface(shape = RoundedCornerShape(8.dp), color = iconColor.copy(alpha = 0.12f), modifier = Modifier.size(32.dp)) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+        }
+    }
+}
+
+@Composable
+private fun TermsCard(icon: ImageVector, title: String, content: String) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(content, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary, lineHeight = 18.sp)
+        }
     }
 }
