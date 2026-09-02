@@ -123,15 +123,15 @@ fun RegisterScreen(
             }
         }
 
-        //Full Name
+        //Display Name
         Column(modifier = Modifier.fillMaxWidth()) {
-            Text("Full Name", style = MaterialTheme.typography.labelLarge,
+            Text("Display Name", style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(bottom = 6.dp))
             OutlinedTextField(
                 value = fullName,
                 onValueChange = { fullName = it; nameError = "" },
-                placeholder = { Text("Enter your full name") },
+                placeholder = { Text("Enter your display name") },
                 leadingIcon = {
                     Icon(Icons.Default.Person, contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary)
@@ -216,7 +216,7 @@ fun RegisterScreen(
             onClick = {
                 var valid = true
                 if (fullName.isBlank()) {
-                    nameError = "Please enter your full name"; valid = false
+                    nameError = "Please enter your display name"; valid = false
                 }
                 if (!isValidEmail(email)) {
                     emailError = "Please enter a valid email address"; valid = false
