@@ -228,7 +228,7 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                 onNavigateToEditProfile = { navController.navigate("edit_profile") },
                 onNavigateToMyListings = { navController.navigate("create_listing") },
                 onNavigateToSaved = { navController.navigate("saved") },
-                onNavigateToMessages = { navController.navigate("messages") },
+                onNavigateToChatSettings = { navController.navigate("chat_settings") },
                 onNavigateToTerms = { navController.navigate("terms_and_conditions") },
                 onNavigateToCampusSafety = { navController.navigate("campus_safety") },
                 onNavigateToAbout = { navController.navigate("about") },
@@ -242,6 +242,13 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                         navController.navigate("login") { popUpTo(0) { inclusive = true } }
                     }
                 }
+            )
+        }
+
+        composable("chat_settings") {
+            ChatSettingsScreen(
+                viewModel = marketplaceViewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

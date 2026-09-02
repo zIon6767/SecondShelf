@@ -90,7 +90,10 @@ fun EditProfileScreen(
                 Spacer(Modifier.height(6.dp))
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it; error = null },
+                    onValueChange = { input ->
+                        name = input.filter { it.isLetter() || it.isWhitespace() }
+                        error = null
+                    },
                     enabled = canChangeName,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -114,11 +117,32 @@ fun EditProfileScreen(
                 }
             }
 
-            ProfileField("Email *", email) { email = it; error = null }
+            ProfileField(
+                label = "Student Email *",
+                value = email,
+                placeholder = "e.g. yourname@student.tarc.edu.my"
+            ) {
+                email = it
+                error = null
+            }
             ProfileField("University *", university) { university = it; error = null }
             ProfileField("Campus *", campus) { campus = it; error = null }
 
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            error?.let {
+                Surface(
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+            }
 
             Button(
                 onClick = {
@@ -136,13 +160,19 @@ fun EditProfileScreen(
 }
 
 @Composable
-private fun ProfileField(label: String, value: String, onChange: (String) -> Unit) {
+private fun ProfileField(
+    label: String,
+    value: String,
+    placeholder: String? = null,
+    onChange: (String) -> Unit
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(6.dp))
         OutlinedTextField(
             value = value,
             onValueChange = onChange,
+            placeholder = if (placeholder != null) { { Text(placeholder, color = Color.Gray) } } else null,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             singleLine = true

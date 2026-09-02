@@ -377,7 +377,13 @@ class MarketplaceViewModel : ViewModel() {
     fun updateProfile(name: String, email: String, university: String, campus: String): String? {
         val trimmedName = name.trim()
         if (trimmedName.isBlank()) return "Name is required"
-        if (email.isBlank()) return "Email is required"
+        val trimmedEmail = email.trim()
+        if (trimmedEmail.isBlank()) return "Email is required"
+
+        val studentEmailRegex = "^[A-Za-z0-9+_.-]+@student\\.tarc\\.edu\\.my$".toRegex(RegexOption.IGNORE_CASE)
+        if (!studentEmailRegex.matches(trimmedEmail)) {
+            return "Invalid email address"
+        }
 
         var newLastNameChange = currentUser.lastNameChangeTimestamp
         if (trimmedName != currentUser.name) {
@@ -390,7 +396,7 @@ class MarketplaceViewModel : ViewModel() {
 
         currentUser = currentUser.copy(
             name = trimmedName,
-            email = email.trim(),
+            email = trimmedEmail,
             university = university.trim(),
             campus = campus.trim(),
             avatarInitial = trimmedName.first().uppercaseChar().toString(),
