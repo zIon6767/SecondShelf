@@ -112,6 +112,10 @@ class AuthViewModel : ViewModel() {
      * Surfaces a clear "not registered" message when credentials are unrecognised.
      */
     fun signIn(email: String, password: String) {
+        if (BuildConfig.SUPABASE_ANON_KEY.contains("PLACEHOLDER") || BuildConfig.SUPABASE_ANON_KEY.isBlank()) {
+            setError("Configuration Error: Please update your SUPABASE_ANON_KEY in local.properties with your 'ey...' key")
+            return
+        }
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             runCatching {
@@ -132,6 +136,10 @@ class AuthViewModel : ViewModel() {
      * Called from SetPasswordScreen after the user completes the two-step register flow.
      */
     fun signUp(email: String, password: String, fullName: String, phone: String) {
+        if (BuildConfig.SUPABASE_ANON_KEY.contains("PLACEHOLDER") || BuildConfig.SUPABASE_ANON_KEY.isBlank()) {
+            setError("Configuration Error: Please update your SUPABASE_ANON_KEY in local.properties with your 'ey...' key")
+            return
+        }
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             runCatching {
@@ -223,7 +231,8 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             runCatching {
-                supabase.auth.parseSessionFromUrl(uri.toString())
+                val session = supabase.auth.parseSessionFromUrl(uri.toString())
+                supabase.auth.importSession(session)
             }.onSuccess {
                 _uiState.value = AuthUiState.Success
             }.onFailure { e ->

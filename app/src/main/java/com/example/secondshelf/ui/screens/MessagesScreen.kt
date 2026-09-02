@@ -46,17 +46,17 @@ fun MessagesScreen(
                 Icon(Icons.Default.ArrowBack, contentDescription = "Back")
             }
             Spacer(Modifier.width(12.dp))
-            Text("Messages", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Notice", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
 
-        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), thickness = 0.5.dp)
 
         if (conversations.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.Chat, contentDescription = null, tint = Color(0xFFD1D5DB), modifier = Modifier.size(64.dp))
+                    Icon(Icons.Default.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f), modifier = Modifier.size(64.dp))
                     Spacer(Modifier.height(12.dp))
-                    Text("No messages yet", color = MaterialTheme.colorScheme.secondary)
+                    Text("No notices yet", color = MaterialTheme.colorScheme.secondary)
                 }
             }
         } else {

@@ -12,9 +12,6 @@ val supabase = createSupabaseClient(
     supabaseUrl = BuildConfig.SUPABASE_URL,
     supabaseKey = BuildConfig.SUPABASE_ANON_KEY
 ) {
-    install(Auth) {
-        scheme = "secondshelf"
-        host = "auth-callback"
-    }
+    install(Auth)
     install(Postgrest)
 }

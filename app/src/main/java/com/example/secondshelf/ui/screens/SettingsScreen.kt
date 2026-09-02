@@ -25,12 +25,13 @@ fun SettingsScreen(
     viewModel: MarketplaceViewModel,
     onNavigateBack: () -> Unit,
     onNavigateToEditProfile: () -> Unit,
+    onNavigateToPrivacySecurity: () -> Unit = {},
+    onNavigateToHelpSupport: () -> Unit = {},
     onLogout: () -> Unit,
     onDeleteAccount: () -> Unit
 ) {
     val user = viewModel.currentUser
     var notificationsEnabled by remember { mutableStateOf(true) }
-    var darkModeEnabled by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
 
@@ -84,7 +85,7 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
@@ -97,49 +98,107 @@ fun SettingsScreen(
             Text("Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
 
-        Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)
-        ) {
-            Spacer(Modifier.height(8.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), thickness = 0.5.dp)
 
-            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
-                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+        ) {
+            // ── Section 1: Account (Student Item relocated directly under Account label) ──
+            SettingsSectionTitle("Account")
+            
+            // Clickable Student Profile Card that navigates directly to Edit Profile
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onNavigateToEditProfile)
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(56.dp)
+                    ) {
                         Box(contentAlignment = Alignment.Center) {
                             Text(user.avatarInitial, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
                     Spacer(Modifier.width(14.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(user.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(user.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
-                        Text(user.university, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                        if (user.email.isNotBlank()) {
+                            Text(user.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                        }
+                        Text(
+                            if (user.campus.isNotBlank()) "${user.university} • ${user.campus}" else user.university,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
                     }
+                    Icon(
+                        Icons.Default.ChevronRight,
+                        contentDescription = "Edit Profile",
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
-            SettingsSectionTitle("Account")
+            Spacer(Modifier.height(10.dp))
+
+            // Account Sub-actions (Privacy & Security)
             SettingsGroup {
-                SettingsNavItem(Icons.Default.Person, "Edit Profile", MaterialTheme.colorScheme.primary, onNavigateToEditProfile)
-                HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
-                SettingsNavItem(Icons.Default.Lock, "Privacy & Security", Color(0xFF5856D6)) {}
+                SettingsNavItem(
+                    icon = Icons.Default.Lock,
+                    label = "Privacy & Security",
+                    iconColor = Color(0xFF5856D6),
+                    onClick = onNavigateToPrivacySecurity
+                )
             }
 
             Spacer(Modifier.height(20.dp))
             SettingsSectionTitle("Preferences")
             SettingsGroup {
-                SettingsToggleItem(Icons.Default.Notifications, "Notifications", notificationsEnabled, { notificationsEnabled = it }, Color(0xFFFF3B30))
-                HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
-                SettingsToggleItem(Icons.Default.DarkMode, "Dark Mode", darkModeEnabled, { darkModeEnabled = it }, Color(0xFF636366))
+                SettingsToggleItem(
+                    icon = Icons.Default.Notifications,
+                    label = "Notifications",
+                    checked = notificationsEnabled,
+                    onCheckedChange = { notificationsEnabled = it },
+                    iconColor = Color(0xFFFF3B30)
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), modifier = Modifier.padding(start = 56.dp))
+                SettingsToggleItem(
+                    icon = Icons.Default.DarkMode,
+                    label = "Dark Mode",
+                    checked = viewModel.isDarkMode,
+                    onCheckedChange = { viewModel.setDarkMode(it) },
+                    iconColor = Color(0xFF636366)
+                )
             }
 
             Spacer(Modifier.height(20.dp))
             SettingsSectionTitle("Support")
             SettingsGroup {
-                SettingsNavItem(Icons.Default.HelpOutline, "Help & Support", Color(0xFF34C759)) {}
-                HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
-                SettingsNavItem(Icons.Default.Info, "About Second Shelf", MaterialTheme.colorScheme.primary) {}
+                SettingsNavItem(
+                    icon = Icons.Default.HelpOutline,
+                    label = "Help & Support",
+                    iconColor = Color(0xFF34C759),
+                    onClick = onNavigateToHelpSupport
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), modifier = Modifier.padding(start = 56.dp))
+                SettingsNavItem(
+                    icon = Icons.Default.Info,
+                    label = "About Second Shelf",
+                    iconColor = MaterialTheme.colorScheme.primary,
+                    onClick = onNavigateToHelpSupport
+                )
             }
 
             Spacer(Modifier.height(20.dp))
@@ -160,7 +219,7 @@ fun SettingsScreen(
                     Text("Log Out", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
                 }
 
-                HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), modifier = Modifier.padding(start = 56.dp))
 
                 Row(
                     modifier = Modifier
@@ -179,9 +238,14 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-            Text("Second Shelf v1.0.0", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f), modifier = Modifier.align(Alignment.CenterHorizontally))
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "Second Shelf v1.0.0 (TAR UMT Edition)",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f),
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+            Spacer(Modifier.height(24.dp))
         }
     }
 }

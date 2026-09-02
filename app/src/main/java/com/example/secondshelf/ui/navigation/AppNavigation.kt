@@ -17,10 +17,12 @@ import com.example.secondshelf.ui.screens.*
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 
 @Composable
-fun AppNavigation(authCallbackUri: Uri? = null) {
+fun AppNavigation(
+    marketplaceViewModel: MarketplaceViewModel = viewModel(),
+    authCallbackUri: Uri? = null
+) {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
-    val marketplaceViewModel: MarketplaceViewModel = viewModel()
     val authUiState by authViewModel.uiState.collectAsState()
 
     // Trigger OAuth token exchange when the deep-link arrives
@@ -213,6 +215,8 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                 viewModel = marketplaceViewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToEditProfile = { navController.navigate("edit_profile") },
+                onNavigateToPrivacySecurity = { navController.navigate("privacy_security") },
+                onNavigateToHelpSupport = { navController.navigate("help_support") },
                 onLogout = {
                     authViewModel.signOut()
                     navController.navigate("login") { popUpTo(0) { inclusive = true } }
@@ -223,6 +227,26 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                         navController.navigate("login") { popUpTo(0) { inclusive = true } }
                     }
                 }
+            )
+        }
+
+        composable("privacy_security") {
+            PrivacySecurityScreen(
+                viewModel = marketplaceViewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onDeleteAccount = {
+                    marketplaceViewModel.clearAllUserData()
+                    authViewModel.deleteAccount {
+                        navController.navigate("login") { popUpTo(0) { inclusive = true } }
+                    }
+                }
+            )
+        }
+
+        composable("help_support") {
+            HelpSupportScreen(
+                viewModel = marketplaceViewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

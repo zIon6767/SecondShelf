@@ -170,5 +170,5 @@ fun TopBar(title: String, onBack: () -> Unit) {
         Spacer(Modifier.width(12.dp))
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     }
-    HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), thickness = 0.5.dp)
 }

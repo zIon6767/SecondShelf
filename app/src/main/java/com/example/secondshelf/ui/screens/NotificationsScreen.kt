@@ -38,7 +38,7 @@ fun NotificationsScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -51,7 +51,7 @@ fun NotificationsScreen(
                 }
                 Spacer(Modifier.width(12.dp))
                 Column {
-                    Text("Notifications", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Notice", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     if (unreadCount > 0) {
                         Text("$unreadCount unread", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                     }
@@ -62,11 +62,11 @@ fun NotificationsScreen(
             }
         }
 
-        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), thickness = 0.5.dp)
 
         if (notifications.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No notifications", color = MaterialTheme.colorScheme.secondary)
+                Text("No notices yet", color = MaterialTheme.colorScheme.secondary)
             }
         } else {
             Column(
@@ -82,7 +82,7 @@ fun NotificationsScreen(
                         onClick = { viewModel.markNotificationRead(notif.id) },
                         onDismiss = { viewModel.clearNotification(notif.id) }
                     )
-                    Divider(color = Color(0xFFE5E7EB).copy(alpha = 0.7f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                 }
                 Spacer(Modifier.height(24.dp))
             }
