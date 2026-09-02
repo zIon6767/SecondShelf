@@ -58,6 +58,10 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                                 popUpTo("splash") { inclusive = true }
                             }
                         }
+                    } else if (authViewModel.hasSeenOnboarding()) {
+                        navController.navigate("login") {
+                            popUpTo("splash") { inclusive = true }
+                        }
                     } else {
                         navController.navigate("onboarding") {
                             popUpTo("splash") { inclusive = true }
@@ -70,6 +74,7 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
         composable("onboarding") {
             OnboardingScreen(
                 onNavigateToLogin = {
+                    authViewModel.setSeenOnboarding()
                     navController.navigate("login") { popUpTo("onboarding") { inclusive = true } }
                 }
             )
