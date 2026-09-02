@@ -26,7 +26,7 @@ val PrimaryBlue = Color(0xFF007BFF)
 @Composable
 fun PickupPassScreen(
     onNavigateBack: () -> Unit,
-    //mock data rchange laterr
+    //mock data change laterr
     itemName: String = "Engineering Calculus Textbook",
     price: String = "RM 40",
     sellerName: String = "Ahmad Faris"
