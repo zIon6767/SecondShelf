@@ -29,7 +29,12 @@ fun NotificationsScreen(
     val notifications = viewModel.notifications
     val unreadCount = viewModel.getUnreadNotificationCount()
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -57,7 +62,7 @@ fun NotificationsScreen(
             }
         }
 
-        Divider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
 
         if (notifications.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

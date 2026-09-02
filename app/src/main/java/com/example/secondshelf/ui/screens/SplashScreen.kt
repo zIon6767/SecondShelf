@@ -20,10 +20,10 @@ import com.example.secondshelf.R
 import kotlinx.coroutines.delay
 
 @Composable
-fun SplashScreen(onNavigateToOnboarding: () -> Unit) {
+fun SplashScreen(onSplashFinished: () -> Unit) {
     LaunchedEffect(key1 = true) {
-        delay(2500)
-        onNavigateToOnboarding()
+        delay(1800)
+        onSplashFinished()
     }
 
     Box(

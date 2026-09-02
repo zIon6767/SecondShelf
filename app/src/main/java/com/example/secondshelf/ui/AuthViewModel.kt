@@ -50,16 +50,59 @@ class AuthViewModel : ViewModel() {
     /** Returns true if a valid Supabase session already exists (persisted login). */
     fun isLoggedIn(): Boolean = supabase.auth.currentSessionOrNull() != null
 
-    /** Returns the full name of the currently logged-in user from metadata. */
+    /** Returns true if the user profile has their custom username and campus set. */
+    fun isProfileComplete(): Boolean {
+        val user = supabase.auth.currentUserOrNull() ?: return false
+        val fullName = user.userMetadata?.get("full_name")?.toString()?.trim('"')
+        val campus = user.userMetadata?.get("campus")?.toString()?.trim('"')
+        return !fullName.isNullOrBlank() && fullName != "null" && fullName != "User" && !campus.isNullOrBlank()
+    }
+
+    /** Returns the full name of the currently logged-in user from metadata or email. */
     fun getUserFullName(): String {
-        val user = supabase.auth.currentUserOrNull()
-        val fullName = user?.userMetadata?.get("full_name")?.toString()?.trim('"')
-        return if (fullName.isNullOrBlank() || fullName == "null") "User" else fullName
+        val user = supabase.auth.currentUserOrNull() ?: return ""
+        val fullName = user.userMetadata?.get("full_name")?.toString()?.trim('"')
+            ?: user.userMetadata?.get("name")?.toString()?.trim('"')
+            ?: user.userMetadata?.get("user_name")?.toString()?.trim('"')
+            ?: user.userMetadata?.get("preferred_username")?.toString()?.trim('"')
+        if (!fullName.isNullOrBlank() && fullName != "null" && fullName != "User" && fullName != "Student") {
+            return fullName
+        }
+        val email = getUserEmail()
+        if (email.isNotBlank()) {
+            val prefix = email.substringBefore("@").replace(".", " ").replace("_", " ")
+            return prefix.split(" ").filter { it.isNotBlank() }.joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+        }
+        return ""
+    }
+
+    /** Returns the user ID of the currently logged-in user. */
+    fun getUserId(): String {
+        return supabase.auth.currentUserOrNull()?.id ?: "user-current"
+    }
+
+    /** Returns the campus of the currently logged-in user. */
+    fun getUserCampus(): String {
+        val user = supabase.auth.currentUserOrNull() ?: return "KL Main Campus"
+        val campus = user.userMetadata?.get("campus")?.toString()?.trim('"')
+        return if (campus.isNullOrBlank() || campus == "null") "KL Main Campus" else campus
+    }
+
+    /** Returns the university of the currently logged-in user. */
+    fun getUserUniversity(): String {
+        val user = supabase.auth.currentUserOrNull() ?: return "TAR UMT"
+        val uni = user.userMetadata?.get("university")?.toString()?.trim('"')
+        return if (uni.isNullOrBlank() || uni == "null") "TAR UMT" else uni
     }
 
     /** Returns the email of the currently logged-in user. */
     fun getUserEmail(): String {
-        return supabase.auth.currentUserOrNull()?.email ?: "user@example.com"
+        val user = supabase.auth.currentUserOrNull() ?: return ""
+        val directEmail = user.email.orEmpty().trim().trim('"')
+        if (directEmail.isNotBlank() && directEmail != "null") return directEmail
+        val metaEmail = user.userMetadata?.get("email")?.toString()?.trim('"').orEmpty().trim()
+        if (metaEmail.isNotBlank() && metaEmail != "null") return metaEmail
+        return ""
     }
 
     // ── Email / Password Auth ─────────────────────────────────────────────────
@@ -120,6 +163,35 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             runCatching { supabase.auth.signOut() }
             _uiState.value = AuthUiState.Idle
+        }
+    }
+
+    /** Deletes the user account / terminates session and redirects. */
+    fun deleteAccount(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            runCatching {
+                supabase.auth.signOut()
+            }
+            _uiState.value = AuthUiState.Idle
+            onComplete()
+        }
+    }
+
+    /** Updates custom user profile fields (username, campus) in Supabase user metadata. */
+    fun updateUserProfile(fullName: String, campus: String, onComplete: () -> Unit) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            runCatching {
+                supabase.auth.updateUser {
+                    data = buildJsonObject {
+                        put("full_name", fullName)
+                        put("campus", campus)
+                    }
+                }
+            }
+            _uiState.value = AuthUiState.Idle
+            onComplete()
         }
     }
 

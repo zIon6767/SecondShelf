@@ -36,7 +36,8 @@ data class User(
     val email: String,
     val university: String,
     val campus: String,
-    val avatarInitial: String = name.first().uppercaseChar().toString()
+    val avatarInitial: String = if (name.isNotBlank()) name.first().uppercaseChar().toString() else "U",
+    val lastNameChangeTimestamp: Long = 0L
 )
 
 data class Listing(

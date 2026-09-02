@@ -9,14 +9,14 @@ import androidx.compose.ui.graphics.Color
 
 private val LightColorScheme = lightColorScheme(
     primary = PrimaryBlue,
-    onPrimary = BackgroundWhite,
+    onPrimary = SurfaceWhite,
     primaryContainer = PrimaryLight,
-    onPrimaryContainer = BackgroundWhite,
+    onPrimaryContainer = SurfaceWhite,
     secondary = TextSecondary,
-    onSecondary = BackgroundWhite,
-    background = BackgroundWhite,
+    onSecondary = SurfaceWhite,
+    background = AppBackgroundLight,
     onBackground = TextMain,
-    surface = SurfaceLight,
+    surface = SurfaceWhite,
     onSurface = TextMain,
     error = DangerRed
 )
@@ -25,9 +25,9 @@ private val DarkColorScheme = darkColorScheme(
     primary = PrimaryLight,
     onPrimary = PrimaryDark,
     background = TextMain,
-    onBackground = BackgroundWhite,
+    onBackground = SurfaceWhite,
     surface = Color(0xFF2C2C2E),
-    onSurface = BackgroundWhite,
+    onSurface = SurfaceWhite,
     error = DangerRed
 )
 

@@ -38,20 +38,26 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
         }
     }
 
-    LaunchedEffect(Unit) {
-        if (authViewModel.isLoggedIn()) {
-            navController.navigate("home") {
-                popUpTo(0) { inclusive = true }
-            }
-        }
-    }
-
     NavHost(navController = navController, startDestination = "splash") {
 
         composable("splash") {
             SplashScreen(
-                onNavigateToOnboarding = {
-                    navController.navigate("onboarding") { popUpTo("splash") { inclusive = true } }
+                onSplashFinished = {
+                    if (authViewModel.isLoggedIn()) {
+                        if (authViewModel.isProfileComplete()) {
+                            navController.navigate("home") {
+                                popUpTo("splash") { inclusive = true }
+                            }
+                        } else {
+                            navController.navigate("complete_profile") {
+                                popUpTo("splash") { inclusive = true }
+                            }
+                        }
+                    } else {
+                        navController.navigate("onboarding") {
+                            popUpTo("splash") { inclusive = true }
+                        }
+                    }
                 }
             )
         }
@@ -68,7 +74,11 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
             LoginScreen(
                 viewModel = authViewModel,
                 onNavigateToHome = {
-                    navController.navigate("home") { popUpTo(0) { inclusive = true } }
+                    if (authViewModel.isProfileComplete()) {
+                        navController.navigate("home") { popUpTo(0) { inclusive = true } }
+                    } else {
+                        navController.navigate("complete_profile") { popUpTo(0) { inclusive = true } }
+                    }
                 },
                 onNavigateToRegister = { navController.navigate("register") }
             )
@@ -83,6 +93,20 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                     )
                 },
                 onNavigateToLogin = { navController.popBackStack() },
+                onNavigateToHome = {
+                    if (authViewModel.isProfileComplete()) {
+                        navController.navigate("home") { popUpTo(0) { inclusive = true } }
+                    } else {
+                        navController.navigate("complete_profile") { popUpTo(0) { inclusive = true } }
+                    }
+                }
+            )
+        }
+
+        composable("complete_profile") {
+            CompleteProfileScreen(
+                authViewModel = authViewModel,
+                marketplaceViewModel = marketplaceViewModel,
                 onNavigateToHome = {
                     navController.navigate("home") { popUpTo(0) { inclusive = true } }
                 }
@@ -113,6 +137,9 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
             HomeScreen(
                 viewModel = marketplaceViewModel,
                 userName = authViewModel.getUserFullName(),
+                userEmail = authViewModel.getUserEmail(),
+                userCampus = authViewModel.getUserCampus(),
+                userUniversity = authViewModel.getUserUniversity(),
                 onNavigateToNotifications = { navController.navigate("notifications") },
                 onNavigateToMarketplace = { navController.navigate("marketplace") },
                 onNavigateToListing = { id -> navController.navigate("listing/$id") },
@@ -189,6 +216,12 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                 onLogout = {
                     authViewModel.signOut()
                     navController.navigate("login") { popUpTo(0) { inclusive = true } }
+                },
+                onDeleteAccount = {
+                    marketplaceViewModel.clearAllUserData()
+                    authViewModel.deleteAccount {
+                        navController.navigate("login") { popUpTo(0) { inclusive = true } }
+                    }
                 }
             )
         }

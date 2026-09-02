@@ -79,6 +79,7 @@ fun ListingDetailScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -94,7 +95,7 @@ fun ListingDetailScreen(
             Text("Listing Details", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
 
-        Divider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
 
         Column(
             modifier = Modifier

@@ -58,6 +58,9 @@ fun EditProfileScreen(
     onNavigateBack: () -> Unit
 ) {
     val user = viewModel.currentUser
+    val daysUntilNameChange = viewModel.getDaysUntilNextNameChange()
+    val canChangeName = daysUntilNameChange == 0
+
     var name by remember { mutableStateOf(user.name) }
     var email by remember { mutableStateOf(user.email) }
     var university by remember { mutableStateOf(user.university) }
@@ -81,10 +84,39 @@ fun EditProfileScreen(
                 }
             }
 
-            ProfileField("Name", name) { name = it; error = null }
-            ProfileField("Email", email) { email = it; error = null }
-            ProfileField("University", university) { university = it; error = null }
-            ProfileField("Campus", campus) { campus = it; error = null }
+            // Name field with 14-day cooldown indicator
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Name *", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it; error = null },
+                    enabled = canChangeName,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
+                Spacer(Modifier.height(4.dp))
+                if (!canChangeName) {
+                    Text(
+                        text = "Name changed recently. You can change it again in $daysUntilNameChange day${if (daysUntilNameChange > 1) "s" else ""}.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFE65100),
+                        fontSize = 12.sp
+                    )
+                } else {
+                    Text(
+                        text = "Note: You can only change your name once every 14 days.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+
+            ProfileField("Email *", email) { email = it; error = null }
+            ProfileField("University *", university) { university = it; error = null }
+            ProfileField("Campus *", campus) { campus = it; error = null }
 
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
@@ -123,6 +155,7 @@ fun TopBar(title: String, onBack: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -137,5 +170,5 @@ fun TopBar(title: String, onBack: () -> Unit) {
         Spacer(Modifier.width(12.dp))
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     }
-    Divider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+    HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
 }

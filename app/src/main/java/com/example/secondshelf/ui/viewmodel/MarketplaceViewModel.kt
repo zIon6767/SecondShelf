@@ -9,8 +9,54 @@ import java.util.UUID
 
 class MarketplaceViewModel : ViewModel() {
 
-    var currentUser by mutableStateOf(mockUsers.first { it.id == CURRENT_USER_ID })
+    var currentUser by mutableStateOf(
+        User(
+            id = "user-current",
+            name = "Student",
+            email = "",
+            university = "TAR UMT",
+            campus = "KL Main Campus"
+        )
+    )
         private set
+
+    fun syncAuthUser(
+        id: String = "",
+        name: String = "",
+        email: String = "",
+        university: String = "",
+        campus: String = ""
+    ) {
+        val cleanId = id.ifBlank { currentUser.id }
+        val cleanEmail = if (email.isNotBlank() && email != "user@example.com" && email != "null") email else currentUser.email
+        val cleanName = if (name.isNotBlank() && name != "User" && name != "null" && name != "Student") {
+            name
+        } else if (cleanEmail.isNotBlank()) {
+            val prefix = cleanEmail.substringBefore("@").replace(".", " ").replace("_", " ")
+            prefix.split(" ").filter { it.isNotBlank() }.joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+        } else if (currentUser.name.isNotBlank() && currentUser.name != "Student") {
+            currentUser.name
+        } else {
+            "Student"
+        }
+        val cleanUni = if (university.isNotBlank() && university != "null") university else currentUser.university
+        val cleanCampus = if (campus.isNotBlank() && campus != "null") campus else currentUser.campus
+        val initial = if (cleanName.isNotBlank() && cleanName != "Student") {
+            cleanName.first().uppercaseChar().toString()
+        } else if (cleanEmail.isNotBlank()) {
+            cleanEmail.first().uppercaseChar().toString()
+        } else {
+            "S"
+        }
+        currentUser = currentUser.copy(
+            id = cleanId,
+            name = cleanName,
+            email = cleanEmail,
+            university = cleanUni,
+            campus = cleanCampus,
+            avatarInitial = initial
+        )
+    }
 
     var listings by mutableStateOf(initialListings)
         private set
@@ -28,7 +74,6 @@ class MarketplaceViewModel : ViewModel() {
         private set
 
     var homeCategory by mutableStateOf(Category.ALL)
-        private set
 
     var searchQuery by mutableStateOf("")
         private set
@@ -45,9 +90,10 @@ class MarketplaceViewModel : ViewModel() {
 
     fun updateSearchQuery(query: String) {
         searchQuery = query
+        marketplaceFilters = marketplaceFilters.copy(query = query)
     }
 
-    fun updateMarketplaceFilters(filters: ListingFilters) {
+    fun updateFilters(filters: ListingFilters) {
         marketplaceFilters = filters
     }
 
@@ -55,7 +101,7 @@ class MarketplaceViewModel : ViewModel() {
         marketplaceFilters = marketplaceFilters.update()
     }
 
-    fun getListing(id: String) = listings.find { it.id == id }
+    fun getListing(id: String): Listing? = listings.find { it.id == id }
 
     fun isFavorite(listingId: String) = favorites.contains(listingId)
 
@@ -95,14 +141,27 @@ class MarketplaceViewModel : ViewModel() {
             result = result.filter { it.condition == cond }
         }
 
-        val query = filters.query.trim().lowercase()
-        if (query.isNotEmpty()) {
+        val rawQuery = filters.query.trim().lowercase()
+        if (rawQuery.isNotEmpty()) {
+            val queryTokens = rawQuery.split(Regex("\\s+")).filter { it.isNotEmpty() }
+
             result = result.filter { listing ->
-                val seller = getSellerName(listing.sellerId).lowercase()
-                listing.title.lowercase().contains(query) ||
-                    listing.description.lowercase().contains(query) ||
-                    listing.category.label.lowercase().contains(query) ||
-                    seller.contains(query)
+                val titleWords = listing.title.lowercase().split(Regex("[^a-z0-9]+")).filter { it.isNotEmpty() }
+                val descWords = listing.description.lowercase().split(Regex("[^a-z0-9]+")).filter { it.isNotEmpty() }
+                val categoryWords = listing.category.label.lowercase().split(Regex("[^a-z0-9]+")).filter { it.isNotEmpty() }
+                val sellerWords = getSellerName(listing.sellerId).lowercase().split(Regex("[^a-z0-9]+")).filter { it.isNotEmpty() }
+
+                // Every token in the query must match at least one relevant attribute
+                queryTokens.all { token ->
+                    // 1. Category name match (e.g. "book" matches "Books", "cloth" matches "Clothing")
+                    categoryWords.any { it.startsWith(token) || token.startsWith(it) } ||
+                    // 2. Title word match (e.g. "table" matches "Table", "calculus" matches "Calculus")
+                    titleWords.any { word -> word.startsWith(token) || (token.length >= 4 && word.contains(token)) } ||
+                    // 3. Description word match (must start with token to avoid "suitable" matching "table")
+                    descWords.any { word -> word.startsWith(token) } ||
+                    // 4. Seller name match
+                    sellerWords.any { it.startsWith(token) }
+                }
             }
         }
 
@@ -110,8 +169,8 @@ class MarketplaceViewModel : ViewModel() {
             SortOption.PRICE_ASC -> result.sortedBy { it.price }
             SortOption.PRICE_DESC -> result.sortedByDescending { it.price }
             SortOption.RELEVANCE -> {
-                if (query.isEmpty()) result.sortedByDescending { it.createdAt }
-                else result.sortedByDescending { relevanceScore(it, query) }
+                if (rawQuery.isEmpty()) result.sortedByDescending { it.createdAt }
+                else result.sortedByDescending { relevanceScore(it, rawQuery) }
             }
             SortOption.NEWEST -> result.sortedByDescending { it.createdAt }
         }
@@ -122,13 +181,17 @@ class MarketplaceViewModel : ViewModel() {
     private fun relevanceScore(listing: Listing, query: String): Int {
         var score = 0
         val title = listing.title.lowercase()
-        if (title.contains(query)) score += 10
-        if (title.startsWith(query)) score += 5
-        if (listing.description.lowercase().contains(query)) score += 3
+        val cat = listing.category.label.lowercase()
+        if (title == query) score += 40
+        if (title.startsWith(query)) score += 25
+        if (cat.contains(query) || query.contains(cat)) score += 20
+        if (title.contains(query)) score += 15
+        val descWords = listing.description.lowercase().split(Regex("[^a-z0-9]+"))
+        if (descWords.any { it.startsWith(query) }) score += 5
         return score
     }
 
-    fun getMyListings() = listings.filter { it.sellerId == CURRENT_USER_ID }
+    fun getMyListings() = listings.filter { it.sellerId == currentUser.id }
 
     fun getSavedListings() = listings.filter { favorites.contains(it.id) }
 
@@ -154,7 +217,7 @@ class MarketplaceViewModel : ViewModel() {
             price = price,
             category = category,
             condition = condition,
-            sellerId = CURRENT_USER_ID,
+            sellerId = currentUser.id,
             location = location.trim(),
             createdAt = "Today"
         )
@@ -163,7 +226,7 @@ class MarketplaceViewModel : ViewModel() {
         notifications = listOf(
             AppNotification(
                 id = "notif-${UUID.randomUUID().toString().take(8)}",
-                userId = CURRENT_USER_ID,
+                userId = currentUser.id,
                 type = NotificationType.LISTING_POSTED,
                 title = "Listing Posted",
                 message = "\"${listing.title}\" was successfully posted!",
@@ -219,7 +282,7 @@ class MarketplaceViewModel : ViewModel() {
 
         val msg = Message(
             id = "msg-${UUID.randomUUID().toString().take(8)}",
-            senderId = CURRENT_USER_ID,
+            senderId = currentUser.id,
             receiverId = receiverId,
             listingId = listingId,
             text = trimmed,
@@ -251,14 +314,14 @@ class MarketplaceViewModel : ViewModel() {
     fun getConversationMessages(participantId: String, listingId: String): List<Message> {
         return messages.filter { msg ->
             msg.listingId == listingId &&
-                ((msg.senderId == participantId && msg.receiverId == CURRENT_USER_ID) ||
-                    (msg.senderId == CURRENT_USER_ID && msg.receiverId == participantId))
+                ((msg.senderId == participantId && msg.receiverId == currentUser.id) ||
+                    (msg.senderId == currentUser.id && msg.receiverId == participantId))
         }
     }
 
     fun markConversationRead(participantId: String, listingId: String) {
         messages = messages.map { msg ->
-            if (msg.senderId == participantId && msg.receiverId == CURRENT_USER_ID && msg.listingId == listingId) {
+            if (msg.senderId == participantId && msg.receiverId == currentUser.id && msg.listingId == listingId) {
                 msg.copy(read = true)
             } else msg
         }
@@ -269,18 +332,60 @@ class MarketplaceViewModel : ViewModel() {
         }
     }
 
+    fun getDaysUntilNextNameChange(): Int {
+        val lastChange = currentUser.lastNameChangeTimestamp
+        if (lastChange == 0L) return 0
+        val fourteenDaysMs = 14L * 24 * 60 * 60 * 1000L
+        val elapsed = System.currentTimeMillis() - lastChange
+        if (elapsed >= fourteenDaysMs) return 0
+        val remainingMs = fourteenDaysMs - elapsed
+        return kotlin.math.ceil(remainingMs.toDouble() / (24.0 * 60 * 60 * 1000)).toInt()
+    }
+
+    fun canChangeName(): Boolean = getDaysUntilNextNameChange() == 0
+
     fun updateProfile(name: String, email: String, university: String, campus: String): String? {
-        if (name.isBlank()) return "Name is required"
+        val trimmedName = name.trim()
+        if (trimmedName.isBlank()) return "Name is required"
         if (email.isBlank()) return "Email is required"
+
+        var newLastNameChange = currentUser.lastNameChangeTimestamp
+        if (trimmedName != currentUser.name) {
+            val daysLeft = getDaysUntilNextNameChange()
+            if (daysLeft > 0) {
+                return "You can only change your name once every 14 days. Please try again in $daysLeft day${if (daysLeft > 1) "s" else ""}."
+            }
+            newLastNameChange = System.currentTimeMillis()
+        }
+
         currentUser = currentUser.copy(
-            name = name.trim(),
+            name = trimmedName,
             email = email.trim(),
             university = university.trim(),
             campus = campus.trim(),
-            avatarInitial = name.trim().first().uppercaseChar().toString()
+            avatarInitial = trimmedName.first().uppercaseChar().toString(),
+            lastNameChangeTimestamp = newLastNameChange
         )
-        showToast("Profile updated")
+        showToast("Profile updated successfully")
         return null
+    }
+
+    fun clearAllUserData() {
+        listings = initialListings
+        favorites = emptySet()
+        notifications = emptyList()
+        messages = emptyList()
+        conversations = emptyList()
+        currentUser = User(
+            id = "user-current",
+            name = "",
+            email = "",
+            university = "TAR UMT",
+            campus = "KL Main Campus"
+        )
+        homeCategory = Category.ALL
+        searchQuery = ""
+        toastMessage = null
     }
 
     fun showToast(message: String) {

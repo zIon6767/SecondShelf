@@ -35,8 +35,8 @@ fun CreateListingScreen(
     var priceText by remember { mutableStateOf(existing?.price?.toString() ?: "") }
     var category by remember { mutableStateOf(existing?.category ?: Category.BOOKS) }
     var condition by remember { mutableStateOf(existing?.condition ?: Condition.GOOD) }
-    var location by remember { mutableStateOf(existing?.location ?: viewModel.currentUser.campus) }
-    var contactPref by remember { mutableStateOf("In-app messaging") }
+    var location by remember { mutableStateOf(existing?.location ?: "") }
+    var contactPref by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
     Column(
@@ -47,6 +47,7 @@ fun CreateListingScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -66,7 +67,7 @@ fun CreateListingScreen(
             )
         }
 
-        Divider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
 
         Column(
             modifier = Modifier
@@ -148,6 +149,7 @@ fun CreateListingScreen(
                 OutlinedTextField(
                     value = location,
                     onValueChange = { location = it; error = null },
+                    placeholder = { Text("e.g. KL Main Campus") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true
@@ -158,6 +160,7 @@ fun CreateListingScreen(
                 OutlinedTextField(
                     value = contactPref,
                     onValueChange = { contactPref = it },
+                    placeholder = { Text("e.g. In-app messaging") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true

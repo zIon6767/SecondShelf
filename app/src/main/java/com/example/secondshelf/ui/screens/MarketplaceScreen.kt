@@ -36,6 +36,7 @@ fun MarketplaceScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
@@ -60,7 +61,7 @@ fun MarketplaceScreen(
             )
         }
 
-        Divider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
 
         Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             OutlinedTextField(

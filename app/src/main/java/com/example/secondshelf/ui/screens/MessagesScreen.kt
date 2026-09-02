@@ -1,6 +1,7 @@
 package com.example.secondshelf.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,6 +33,7 @@ fun MessagesScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -47,7 +49,7 @@ fun MessagesScreen(
             Text("Messages", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
 
-        Divider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
 
         if (conversations.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -58,56 +60,32 @@ fun MessagesScreen(
                 }
             }
         } else {
-            LazyColumn {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(conversations) { conv ->
-                    val listing = viewModel.getListing(conv.listingId)
-                    val participant = getUserById(conv.participantId)
-
                     Surface(
-                        onClick = { onConversationClick(conv.participantId, conv.listingId) },
-                        color = if (conv.unreadCount > 0) MaterialTheme.colorScheme.primary.copy(alpha = 0.04f) else Color.Transparent
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onConversationClick(conv.participantId, conv.listingId) }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surface
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(48.dp)) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Text(participant?.avatarInitial ?: "?", color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text(conv.participantId.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
                                 }
                             }
-                            Spacer(Modifier.width(14.dp))
+                            Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(getSellerName(conv.participantId), fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    listing?.title ?: "Listing",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    conv.lastMessage,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                Text(conv.lastMessage, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(conv.lastTimestamp, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
-                                if (conv.unreadCount > 0) {
-                                    Spacer(Modifier.height(4.dp))
-                                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Text("${conv.unreadCount}", color = Color.White, style = MaterialTheme.typography.labelSmall)
-                                        }
-                                    }
-                                }
+                            if (conv.unreadCount > 0) {
+                                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(8.dp)) {}
                             }
                         }
                     }
-                    Divider(color = Color(0xFFE5E7EB).copy(alpha = 0.7f), modifier = Modifier.padding(start = 82.dp))
                 }
             }
         }
@@ -116,24 +94,24 @@ fun MessagesScreen(
 
 @Composable
 fun ConversationScreen(
+    viewModel: MarketplaceViewModel,
     participantId: String,
     listingId: String,
-    viewModel: MarketplaceViewModel,
     onNavigateBack: () -> Unit
 ) {
-    val listing = viewModel.getListing(listingId)
     var messageText by remember { mutableStateOf("") }
+    val messages = viewModel.getConversationMessages(participantId, listingId)
+    val listing = viewModel.getListing(listingId)
 
     LaunchedEffect(participantId, listingId) {
         viewModel.markConversationRead(participantId, listingId)
     }
 
-    val messages = viewModel.getConversationMessages(participantId, listingId)
-
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -152,7 +130,7 @@ fun ConversationScreen(
             }
         }
 
-        Divider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
 
         LazyColumn(
             modifier = Modifier.weight(1f).padding(horizontal = 16.dp),

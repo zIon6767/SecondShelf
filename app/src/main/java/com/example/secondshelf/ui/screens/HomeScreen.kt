@@ -1,8 +1,12 @@
 package com.example.secondshelf.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,14 +14,17 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.secondshelf.ui.components.*
@@ -29,6 +36,9 @@ import java.util.Calendar
 fun HomeScreen(
     viewModel: MarketplaceViewModel,
     userName: String = "User",
+    userEmail: String = "",
+    userCampus: String = "",
+    userUniversity: String = "",
     onNavigateToNotifications: () -> Unit,
     onNavigateToMarketplace: () -> Unit,
     onNavigateToListing: (String) -> Unit,
@@ -42,6 +52,15 @@ fun HomeScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
 
+    LaunchedEffect(userName, userEmail, userCampus, userUniversity) {
+        viewModel.syncAuthUser(
+            name = userName,
+            email = userEmail,
+            campus = userCampus,
+            university = userUniversity
+        )
+    }
+
     LaunchedEffect(viewModel.toastMessage) {
         viewModel.toastMessage?.let {
             snackbarHostState.showSnackbar(it)
@@ -52,39 +71,25 @@ fun HomeScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.background,
-                tonalElevation = 0.dp
-            ) {
-                NavigationBarItem(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                    label = { Text("Home") },
-                    colors = navColors()
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    icon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                    label = { Text("Search") },
-                    colors = navColors()
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
-                    icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-                    label = { Text("Profile") },
-                    colors = navColors()
-                )
-            }
+            SecondShelfBottomBar(
+                selectedTab = selectedTab,
+                onTabSelected = { selectedTab = it },
+                onAddListingClick = onNavigateToCreateListing
+            )
         }
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
             when (selectedTab) {
-                0 -> HomeTab(viewModel, userName, onNavigateToNotifications, onNavigateToMarketplace, onNavigateToListing)
-                1 -> SearchTab(viewModel, onNavigateToListing)
-                2 -> ProfileTab(
+                0 -> HomeTab(
+                    viewModel = viewModel,
+                    userName = userName,
+                    onNavigateToNotifications = onNavigateToNotifications,
+                    onNavigateToListing = onNavigateToListing,
+                    onNavigateToCreateListing = onNavigateToCreateListing
+                )
+                1 -> SavedTab(viewModel, onNavigateToListing, onNavigateToCreateListing)
+                2 -> ChatTab(viewModel, onNavigateToMessages)
+                3 -> ProfileTab(
                     viewModel,
                     onNavigateToSettings,
                     onNavigateToCreateListing,
@@ -100,11 +105,136 @@ fun HomeScreen(
 }
 
 @Composable
-private fun navColors() = NavigationBarItemDefaults.colors(
-    selectedIconColor = MaterialTheme.colorScheme.primary,
-    selectedTextColor = MaterialTheme.colorScheme.primary,
-    indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-)
+private fun SecondShelfBottomBar(
+    selectedTab: Int,
+    onTabSelected: (Int) -> Unit,
+    onAddListingClick: () -> Unit
+) {
+    val activeColor = MaterialTheme.colorScheme.primary
+    val inactiveColor = Color(0xFF8E8E93)
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White,
+        shadowElevation = 8.dp,
+        border = BorderStroke(0.5.dp, Color(0xFFE5E7EB))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // ── 1. Home ──
+            SecondShelfNavItem(
+                label = "Home",
+                selected = selectedTab == 0,
+                icon = if (selectedTab == 0) Icons.Filled.Home else Icons.Outlined.Home,
+                activeColor = activeColor,
+                inactiveColor = inactiveColor,
+                onClick = { onTabSelected(0) }
+            )
+
+            // ── 2. Saved ──
+            SecondShelfNavItem(
+                label = "Saved",
+                selected = selectedTab == 1,
+                icon = if (selectedTab == 1) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                activeColor = activeColor,
+                inactiveColor = inactiveColor,
+                onClick = { onTabSelected(1) }
+            )
+
+            // ── 3. Standout "Sell / Add Listing" Center Button ──
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .clickable(onClick = onAddListingClick)
+                    .padding(horizontal = 6.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    shadowElevation = 4.dp,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add Listing",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Sell",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // ── 4. Chat ──
+            SecondShelfNavItem(
+                label = "Chat",
+                selected = selectedTab == 2,
+                icon = if (selectedTab == 2) Icons.Filled.ChatBubble else Icons.Outlined.ChatBubbleOutline,
+                activeColor = activeColor,
+                inactiveColor = inactiveColor,
+                onClick = { onTabSelected(2) }
+            )
+
+            // ── 5. Profile ──
+            SecondShelfNavItem(
+                label = "Profile",
+                selected = selectedTab == 3,
+                icon = if (selectedTab == 3) Icons.Filled.Person else Icons.Outlined.Person,
+                activeColor = activeColor,
+                inactiveColor = inactiveColor,
+                onClick = { onTabSelected(3) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SecondShelfNavItem(
+    label: String,
+    selected: Boolean,
+    icon: ImageVector,
+    activeColor: Color,
+    inactiveColor: Color,
+    onClick: () -> Unit
+) {
+    val color = if (selected) activeColor else inactiveColor
+
+    Column(
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = color,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            color = color,
+            fontSize = 11.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+        )
+    }
+}
 
 private fun greeting(): String {
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -116,103 +246,257 @@ private fun greeting(): String {
 }
 
 @Composable
-private fun HomeTab(
-    viewModel: MarketplaceViewModel,
-    userName: String,
-    onNavigateToNotifications: () -> Unit,
-    onNavigateToMarketplace: () -> Unit,
-    onNavigateToListing: (String) -> Unit
+private fun CleanTopBar(
+    displayName: String,
+    unreadCount: Int,
+    onNavigateToNotifications: () -> Unit
 ) {
-    val category = viewModel.homeCategory
-    val filtered = viewModel.filterListings(ListingFilters(category = category))
-    val unreadCount = viewModel.getUnreadNotificationCount()
+    val shortName = displayName.split(" ").firstOrNull() ?: displayName
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White,
+        border = BorderStroke(0.5.dp, Color(0xFFE5E7EB))
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .statusBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
-                Text(
-                    text = greeting(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                Text(
-                    text = userName,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = shortName.firstOrNull()?.uppercaseChar()?.toString() ?: "S",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Column {
+                    Text(
+                        text = "${greeting()}, $shortName",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .background(Color(0xFF34C759), CircleShape)
+                        )
+                        Text(
+                            text = "TAR UMT Marketplace",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.secondary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             }
+
             Box {
                 IconButton(
                     onClick = onNavigateToNotifications,
                     modifier = Modifier
-                        .size(44.dp)
-                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                        .size(40.dp)
+                        .background(Color(0xFFF4F7FB), RoundedCornerShape(12.dp))
                 ) {
-                    Icon(Icons.Default.Notifications, contentDescription = "Notifications", tint = MaterialTheme.colorScheme.primary)
+                    Icon(
+                        Icons.Outlined.Notifications,
+                        contentDescription = "Notifications",
+                        tint = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
                 if (unreadCount > 0) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color(0xFFFF3B30),
+                    Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .size(18.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                if (unreadCount > 9) "9+" else "$unreadCount",
-                                color = Color.White,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
+                            .offset(x = 1.dp, y = 1.dp)
+                            .size(9.dp)
+                            .background(Color(0xFFFF3B30), CircleShape)
+                    )
                 }
             }
         }
+    }
+}
 
-        Divider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+@Composable
+private fun HomeTab(
+    viewModel: MarketplaceViewModel,
+    userName: String,
+    onNavigateToNotifications: () -> Unit,
+    onNavigateToListing: (String) -> Unit,
+    onNavigateToCreateListing: () -> Unit
+) {
+    val user = viewModel.currentUser
+    val displayName = user.name.ifBlank { if (userName.isNotBlank() && userName != "User") userName else "Student" }
+    var searchQuery by remember { mutableStateOf("") }
+    val category = viewModel.homeCategory
+    val filtered = viewModel.filterListings(
+        ListingFilters(
+            category = category,
+            query = searchQuery
+        )
+    )
+    val unreadCount = viewModel.getUnreadNotificationCount()
 
-        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            HeroBanner(onBrowseClick = onNavigateToMarketplace)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        // ── Pinned Clean Formal Top Bar ──
+        CleanTopBar(
+            displayName = displayName,
+            unreadCount = unreadCount,
+            onNavigateToNotifications = onNavigateToNotifications
+        )
 
+        // ── Scrollable Body Content ──
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+        ) {
+            Spacer(Modifier.height(14.dp))
+
+            // ── Live In-Place Search Bar ──
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                shape = RoundedCornerShape(14.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                shadowElevation = 1.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Outlined.Search,
+                        contentDescription = "Search",
+                        tint = if (searchQuery.isNotEmpty()) MaterialTheme.colorScheme.primary else Color(0xFF8E8E93),
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    TextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = {
+                            Text(
+                                text = "Search textbooks, calculators, tech...",
+                                color = Color(0xFF8E8E93),
+                                fontSize = 14.sp
+                            )
+                        },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            disabledContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            cursorColor = MaterialTheme.colorScheme.primary
+                        ),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                        trailingIcon = if (searchQuery.isNotEmpty()) {
+                            {
+                                IconButton(
+                                    onClick = { searchQuery = "" },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Clear Search",
+                                        tint = Color(0xFF8E8E93),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        } else null,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(18.dp))
+
+            // ── Category Selector ──
             Text(
                 "Categories",
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 20.dp, bottom = 12.dp)
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
             )
             CategorySelector(
                 selected = category,
                 onSelect = viewModel::updateHomeCategory
             )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(18.dp))
 
+            // ── Listings Section Header ──
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    if (category == Category.ALL) "Recent Listings" else "${category.label} Listings",
-                    style = MaterialTheme.typography.titleLarge,
+                    text = when {
+                        searchQuery.isNotBlank() -> "Results for \"$searchQuery\""
+                        category == Category.ALL -> "Recent Listings"
+                        else -> "${category.label} Listings"
+                    },
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                Text("${filtered.size} items", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                ) {
+                    Text(
+                        text = "${filtered.size} item${if (filtered.size != 1) "s" else ""}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
             }
 
             Spacer(Modifier.height(12.dp))
 
+            // ── Listings Grid ──
             if (filtered.isEmpty()) {
-                EmptyState("No listings found", "Try a different category")
+                EmptyState(
+                    title = if (searchQuery.isNotBlank()) "No items matching \"$searchQuery\"" else "No listings found",
+                    subtitle = if (searchQuery.isNotBlank()) "Try checking the spelling or searching another keyword" else "Try selecting another category"
+                )
             } else {
                 ListingGrid(
                     listings = filtered,
@@ -221,77 +505,192 @@ private fun HomeTab(
                     onListingClick = onNavigateToListing
                 )
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(20.dp))
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SearchTab(viewModel: MarketplaceViewModel, onNavigateToListing: (String) -> Unit) {
-    var query by remember { mutableStateOf(viewModel.searchQuery) }
-    var selectedFilter by remember { mutableStateOf(Category.ALL) }
-
-    val results = viewModel.filterListings(
-        ListingFilters(
-            category = selectedFilter,
-            query = query,
-            sort = if (query.isNotBlank()) SortOption.RELEVANCE else SortOption.NEWEST
-        )
-    )
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp)) {
-            Text("Search", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it; viewModel.updateSearchQuery(it) },
-                placeholder = { Text("Search items, sellers…") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                trailingIcon = if (query.isNotEmpty()) {
-                    { IconButton(onClick = { query = ""; viewModel.updateSearchQuery("") }) { Icon(Icons.Default.Close, contentDescription = "Clear") } }
-                } else null,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                singleLine = true
-            )
-
-            if (query.isEmpty()) {
-                Spacer(Modifier.height(12.dp))
-                Text("Popular searches", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
-                Spacer(Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    searchSuggestions.take(4).forEach { suggestion ->
-                        SuggestionChip(onClick = { query = suggestion; viewModel.updateSearchQuery(suggestion) }, label = { Text(suggestion) })
-                    }
-                }
+private fun SavedTab(
+    viewModel: MarketplaceViewModel,
+    onNavigateToListing: (String) -> Unit,
+    onNavigateToCreateListing: () -> Unit
+) {
+    val saved = viewModel.getSavedListings()
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = Color.White,
+            border = BorderStroke(0.5.dp, Color(0xFFE5E7EB))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Saved Items",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "${saved.size} items",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.secondary
+                )
             }
         }
 
-        Divider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
-
-        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            CategorySelector(selected = selectedFilter, onSelect = { selectedFilter = it })
-
-            Text(
-                "${results.size} result${if (results.size != 1) "s" else ""}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-            )
-
-            if (results.isEmpty()) {
-                EmptyState("No items found", "Try a different keyword or filter")
-            } else {
+        if (saved.isEmpty()) {
+            EmptyState("No saved items yet", "Tap the heart icon on any listing to save it")
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = 12.dp)
+            ) {
                 ListingGrid(
-                    listings = results,
+                    listings = saved,
                     isFavorite = viewModel::isFavorite,
                     onFavoriteClick = viewModel::toggleFavorite,
                     onListingClick = onNavigateToListing
                 )
+                Spacer(Modifier.height(20.dp))
             }
-            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun ChatTab(
+    viewModel: MarketplaceViewModel,
+    onNavigateToMessages: () -> Unit
+) {
+    val conversations = viewModel.conversations
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = Color.White,
+            border = BorderStroke(0.5.dp, Color(0xFFE5E7EB))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Messages",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "${conversations.size} conversations",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
+        }
+
+        if (conversations.isEmpty()) {
+            EmptyState("No messages yet", "Contact sellers on any listing to start chatting")
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                items(conversations) { conv ->
+                    val otherUser = getUserById(conv.participantId)
+                    val listing = viewModel.getListing(conv.listingId)
+
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onNavigateToMessages() }
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.White,
+                        border = BorderStroke(0.5.dp, Color(0xFFE5E7EB))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(48.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = otherUser?.avatarInitial ?: "U",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 18.sp
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = otherUser?.name ?: "Student",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                    Text(
+                                        text = conv.lastTimestamp,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
+                                }
+                                if (listing != null) {
+                                    Text(
+                                        text = "Item: ${listing.title}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Text(
+                                    text = conv.lastMessage,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            if (conv.unreadCount > 0) {
+                                Spacer(Modifier.width(8.dp))
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(10.dp)
+                                ) {}
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -329,7 +728,10 @@ private fun ProfileTab(
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -355,8 +757,15 @@ private fun ProfileTab(
                 }
                 Spacer(Modifier.height(12.dp))
                 Text(user.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text(user.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
-                Text(user.university, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(top = 2.dp))
+                if (user.email.isNotBlank()) {
+                    Text(user.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                }
+                Text(
+                    if (user.campus.isNotBlank()) "${user.university} • ${user.campus}" else user.university,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
 
                 Spacer(Modifier.height(20.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {

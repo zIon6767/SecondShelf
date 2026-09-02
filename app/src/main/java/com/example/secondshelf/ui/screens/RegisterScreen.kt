@@ -47,6 +47,7 @@ fun RegisterScreen(
     var phone      by remember { mutableStateOf("") }
     var nameError  by remember { mutableStateOf("") }
     var emailError by remember { mutableStateOf("") }
+    var phoneError by remember { mutableStateOf("") }
 
     val uiState   by viewModel.uiState.collectAsState()
     val isLoading = uiState is AuthUiState.Loading
@@ -62,15 +63,21 @@ fun RegisterScreen(
         }
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .imePadding(),
+        contentAlignment = Alignment.Center
     ) {
-        Spacer(modifier = Modifier.height(56.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 28.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
 
         //Header
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -191,13 +198,17 @@ fun RegisterScreen(
                 modifier = Modifier.padding(bottom = 6.dp))
             OutlinedTextField(
                 value = phone,
-                onValueChange = { phone = it },
-                placeholder = { Text("e.g. 01X-XXXXXXXX") },
+                onValueChange = { input ->
+                    phone = input.filter { it.isDigit() }.take(11)
+                    phoneError = ""
+                },
+                placeholder = { Text("e.g. 0123456789") },
                 leadingIcon = {
                     Icon(Icons.Default.Phone, contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary)
                 },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                isError = phoneError.isNotEmpty(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
                 singleLine = true,
@@ -207,6 +218,14 @@ fun RegisterScreen(
                     unfocusedBorderColor = Color(0xFFE5E7EB)
                 )
             )
+            if (phoneError.isNotEmpty()) {
+                Text(
+                    text = phoneError,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(28.dp))
@@ -220,6 +239,10 @@ fun RegisterScreen(
                 }
                 if (!isValidEmail(email)) {
                     emailError = "Please enter a valid email address"; valid = false
+                }
+                if (phone.isNotBlank() && (phone.length < 10 || !phone.startsWith("01"))) {
+                    phoneError = "Invalid phone number (must start with 01 and be 10-11 digits)"
+                    valid = false
                 }
                 if (valid) onNavigateToSetPassword(fullName.trim(), email.trim(), phone.trim())
             },
@@ -289,5 +312,6 @@ fun RegisterScreen(
         }
 
         Spacer(modifier = Modifier.height(32.dp))
+        }
     }
 }

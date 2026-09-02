@@ -25,12 +25,14 @@ fun SettingsScreen(
     viewModel: MarketplaceViewModel,
     onNavigateBack: () -> Unit,
     onNavigateToEditProfile: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onDeleteAccount: () -> Unit
 ) {
     val user = viewModel.currentUser
     var notificationsEnabled by remember { mutableStateOf(true) }
     var darkModeEnabled by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
 
     if (showLogoutDialog) {
         AlertDialog(
@@ -48,9 +50,41 @@ fun SettingsScreen(
         )
     }
 
+    if (showDeleteAccountDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteAccountDialog = false },
+            title = { Text("Delete Account", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "Are you sure you want to permanently delete your account?\n\nThis action cannot be undone. All your listings, messages, and profile data will be permanently deleted."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteAccountDialog = false
+                        onDeleteAccount()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete Account", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteAccountDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
@@ -88,7 +122,7 @@ fun SettingsScreen(
             SettingsSectionTitle("Account")
             SettingsGroup {
                 SettingsNavItem(Icons.Default.Person, "Edit Profile", MaterialTheme.colorScheme.primary, onNavigateToEditProfile)
-                Divider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
+                HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
                 SettingsNavItem(Icons.Default.Lock, "Privacy & Security", Color(0xFF5856D6)) {}
             }
 
@@ -96,7 +130,7 @@ fun SettingsScreen(
             SettingsSectionTitle("Preferences")
             SettingsGroup {
                 SettingsToggleItem(Icons.Default.Notifications, "Notifications", notificationsEnabled, { notificationsEnabled = it }, Color(0xFFFF3B30))
-                Divider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
+                HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
                 SettingsToggleItem(Icons.Default.DarkMode, "Dark Mode", darkModeEnabled, { darkModeEnabled = it }, Color(0xFF636366))
             }
 
@@ -104,7 +138,7 @@ fun SettingsScreen(
             SettingsSectionTitle("Support")
             SettingsGroup {
                 SettingsNavItem(Icons.Default.HelpOutline, "Help & Support", Color(0xFF34C759)) {}
-                Divider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
+                HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
                 SettingsNavItem(Icons.Default.Info, "About Second Shelf", MaterialTheme.colorScheme.primary) {}
             }
 
@@ -124,6 +158,24 @@ fun SettingsScreen(
                     }
                     Spacer(Modifier.width(14.dp))
                     Text("Log Out", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
+                }
+
+                HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showDeleteAccountDialog = true }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(shape = RoundedCornerShape(10.dp), color = Color(0xFFFF3B30).copy(alpha = 0.12f), modifier = Modifier.size(36.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.DeleteForever, contentDescription = null, tint = Color(0xFFFF3B30), modifier = Modifier.size(20.dp))
+                        }
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Text("Delete Account", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = Color(0xFFFF3B30))
                 }
             }
 

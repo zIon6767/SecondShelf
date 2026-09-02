@@ -215,15 +215,29 @@ fun CompleteProfileScreen(
             // Phone Field
             Text("Phone / WhatsApp (Optional)", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
+            val isPhoneInvalid = phone.isNotBlank() && (phone.length < 10 || !phone.startsWith("01"))
             OutlinedTextField(
                 value = phone,
-                onValueChange = { phone = it },
-                placeholder = { Text("e.g. 012-3456789") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                onValueChange = { input ->
+                    phone = input.filter { it.isDigit() }.take(11)
+                    errorText = null
+                },
+                placeholder = { Text("e.g. 0123456789") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                isError = isPhoneInvalid,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
             )
+            if (isPhoneInvalid) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Invalid phone number (must start with 01 and be 10-11 digits)",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 12.sp
+                )
+            }
 
             Spacer(Modifier.height(28.dp))
 
@@ -232,6 +246,10 @@ fun CompleteProfileScreen(
                 onClick = {
                     if (fullName.trim().isBlank()) {
                         errorText = "Please enter your username / display name."
+                        return@Button
+                    }
+                    if (isPhoneInvalid) {
+                        errorText = "Invalid phone number. Please enter a valid number (e.g. 0123456789)."
                         return@Button
                     }
                     authViewModel.updateUserProfile(

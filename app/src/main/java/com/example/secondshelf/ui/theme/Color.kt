@@ -7,9 +7,10 @@ val PrimaryBlue = Color(0xFF007AFF)
 val PrimaryLight = Color(0xFF47A1FF)
 val PrimaryDark = Color(0xFF0056B3)
 
-// Neutrals
-val BackgroundWhite = Color(0xFFFFFFFF)
-val SurfaceLight = Color(0xFFF5F7FA)
+// Neutrals - Modern Soft Tinted Background & Surfaces
+val AppBackgroundLight = Color(0xFFF4F7FB) // Subtle, soothing light blue-gray background tint
+val SurfaceWhite = Color(0xFFFFFFFF)       // Clean white for cards, modals, sheets
+val SurfaceLight = Color(0xFFEFF3F8)       // Secondary surface tint for tags and badges
 val TextMain = Color(0xFF1A1A1A)
 val TextSecondary = Color(0xFF6B7280)
 val BorderGray = Color(0xFFE5E7EB)

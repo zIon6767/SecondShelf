@@ -2,10 +2,7 @@ package com.example.secondshelf.ui.model
 
 import androidx.compose.ui.graphics.Color
 
-const val CURRENT_USER_ID = "user-1"
-
 val mockUsers = listOf(
-    User("user-1", "Chong Ming",      "chongming@student.tarc.edu.my",     "TAR UMT", "KL Main Campus"),
     User("user-2", "Ahmad Faris",     "ahmadfaris@student.tarc.edu.my",    "TAR UMT", "KL Main Campus"),
     User("user-3", "Sarah Lim",       "sarahlim@student.tarc.edu.my",      "TAR UMT", "Penang Branch Campus"),
     User("user-4", "Daniel Kumar",    "danielkumar@student.tarc.edu.my",   "TAR UMT", "KL Main Campus"),
@@ -103,7 +100,7 @@ val initialListings = listOf(
         price = 55,
         category = Category.ELECTRONICS,
         condition = Condition.LIKE_NEW,
-        sellerId = CURRENT_USER_ID,
+        sellerId = "user-2",
         location = "KL Main Campus",
         createdAt = "2026-08-20",
         cardColor = Color(0xFFFFF3E0),
@@ -262,26 +259,11 @@ val initialListings = listOf(
     ),
 )
 
-val initialNotifications = listOf(
-    AppNotification("notif-1", CURRENT_USER_ID, NotificationType.SAVED,          "Listing Saved",     "Ahmad Faris saved your USB-C Hub listing",              "3 min ago",   read = false),
-    AppNotification("notif-2", CURRENT_USER_ID, NotificationType.MESSAGE,        "New Message",       "Sarah Lim: \"Is the USB-C hub still available?\"",      "20 min ago",  read = false),
-    AppNotification("notif-3", CURRENT_USER_ID, NotificationType.INTEREST,       "Listing Interest",  "Your USB-C Hub listing got 5 new views today",          "1 hour ago",  read = false),
-    AppNotification("notif-4", CURRENT_USER_ID, NotificationType.DEAL,           "Campus Deals",      "New textbooks posted near you — up to 40% cheaper",     "Yesterday",   read = true),
-    AppNotification("notif-5", CURRENT_USER_ID, NotificationType.LISTING_POSTED, "Listing Posted",    "Your USB-C Hub 7-in-1 was successfully listed!",        "3 days ago",  read = true),
-)
+val initialNotifications = emptyList<AppNotification>()
 
-val initialMessages = listOf(
-    Message("msg-1", "user-3", CURRENT_USER_ID, "listing-7", "Hi! Is the USB-C hub still available?",          "2026-08-24T08:10:00Z", read = false),
-    Message("msg-2", CURRENT_USER_ID, "user-3", "listing-7", "Yes it is! You can collect from my hostel block.",  "2026-08-24T08:15:00Z", read = true),
-    Message("msg-3", "user-3", CURRENT_USER_ID, "listing-7", "Great! Can we meet tomorrow afternoon?",           "2026-08-24T08:20:00Z", read = false),
-    Message("msg-4", "user-2", CURRENT_USER_ID, "listing-7", "Would you take RM 48 for the hub?",               "2026-08-23T14:00:00Z", read = true),
-    Message("msg-5", CURRENT_USER_ID, "user-2", "listing-7", "Sorry, RM 55 is the lowest I can go.",            "2026-08-23T14:30:00Z", read = true),
-)
+val initialMessages = emptyList<Message>()
 
-val initialConversations = listOf(
-    Conversation("conv-1", "listing-7", "user-3", "Great! Can we meet tomorrow afternoon?", "2026-08-24T08:20:00Z", unreadCount = 2),
-    Conversation("conv-2", "listing-7", "user-2", "Sorry, RM 55 is the lowest I can go.",  "2026-08-23T14:30:00Z", unreadCount = 0),
-)
+val initialConversations = emptyList<Conversation>()
 
 val searchSuggestions = listOf(
     "calculator", "textbook", "keyboard", "lab manual", "notebook",

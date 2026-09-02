@@ -65,14 +65,20 @@ fun LoginScreen(
         }
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 28.dp)
+            .imePadding(),
+        contentAlignment = Alignment.Center
     ) {
-        Spacer(modifier = Modifier.height(72.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 28.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
 
         //Header
         Text(
@@ -301,5 +307,6 @@ fun LoginScreen(
         }
 
         Spacer(modifier = Modifier.height(32.dp))
+        }
     }
 }
