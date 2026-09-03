@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.secondshelf.data.marketplace.CreateListingRecord
 import com.example.secondshelf.data.marketplace.ListingRecord
+import com.example.secondshelf.data.marketplace.SellerProfileRecord
 import com.example.secondshelf.data.marketplace.SupabaseMarketplaceRepository
 import com.example.secondshelf.data.marketplace.UpdateListingRecord
 import com.example.secondshelf.supabase
@@ -175,11 +176,17 @@ class MarketplaceViewModel(
 
             val imageUrls = repository.getListingImageUrls()
                 .getOrElse { emptyMap() }
+            val sellerProfiles = repository.getSellerProfiles()
+                .getOrElse { emptyMap() }
 
             repository.getListings()
                 .onSuccess { records ->
                     listings = records.map { record ->
-                        toUiListing(record, imageUrls[record.id])
+                        toUiListing(
+                            record = record,
+                            imageUrl = imageUrls[record.id],
+                            sellerProfile = sellerProfiles[record.sellerId]
+                        )
                     }
                 }
                 .onFailure { error ->
@@ -203,8 +210,24 @@ class MarketplaceViewModel(
 
     private fun toUiListing(
         record: ListingRecord,
-        imageUrl: String? = null
-    ) = Listing(
+        imageUrl: String? = null,
+        sellerProfile: SellerProfileRecord? = null
+    ): Listing {
+        val isOwnedByCurrentUser = record.sellerId == currentUser.id
+        val resolvedSellerName = sellerProfile?.name
+            ?.takeIf { it.isNotBlank() && it != "Student" && it != "User" }
+            ?: currentUser.name.takeIf { isOwnedByCurrentUser && it.isNotBlank() }
+            ?: "Unknown Seller"
+        val resolvedSellerCampus = sellerProfile?.campus
+            ?.takeIf { it.isNotBlank() }
+            ?: currentUser.campus.takeIf { isOwnedByCurrentUser }
+            .orEmpty()
+        val resolvedSellerAvatar = sellerProfile?.avatarUrl
+            ?.takeIf { it.isNotBlank() }
+            ?: currentUser.avatarUrl.takeIf { isOwnedByCurrentUser }
+            .orEmpty()
+
+        return Listing(
         id = record.id,
         title = record.title,
         description = record.description,
@@ -214,8 +237,13 @@ class MarketplaceViewModel(
         sellerId = record.sellerId,
         location = record.location,
         createdAt = record.createdAt,
-        imageUrl = imageUrl
-    )
+        imageUrl = imageUrl,
+        sellerName = resolvedSellerName,
+        sellerCampus = resolvedSellerCampus,
+        sellerAvatarUrl = resolvedSellerAvatar,
+        isOwnedByCurrentUser = isOwnedByCurrentUser
+        )
+    }
 
     private fun isSupabaseUserId(id: String): Boolean =
         runCatching { UUID.fromString(id) }.isSuccess
