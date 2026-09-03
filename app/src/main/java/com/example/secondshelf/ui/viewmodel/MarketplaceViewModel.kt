@@ -4,10 +4,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.secondshelf.data.marketplace.CreateListingRecord
+import com.example.secondshelf.data.marketplace.ListingRecord
+import com.example.secondshelf.data.marketplace.SupabaseMarketplaceRepository
+import com.example.secondshelf.data.marketplace.UpdateListingRecord
 import com.example.secondshelf.ui.model.*
+import kotlinx.coroutines.launch
 import java.util.UUID
 
-class MarketplaceViewModel : ViewModel() {
+class MarketplaceViewModel(
+    private val repository: SupabaseMarketplaceRepository = SupabaseMarketplaceRepository()
+) : ViewModel() {
 
     var currentUser by mutableStateOf(
         User(
@@ -27,6 +35,7 @@ class MarketplaceViewModel : ViewModel() {
         university: String = "",
         campus: String = ""
     ) {
+        val previousId = currentUser.id
         val cleanId = id.ifBlank { currentUser.id }
         val cleanEmail = if (email.isNotBlank() && email != "user@example.com" && email != "null") email else currentUser.email
         val cleanName = if (name.isNotBlank() && name != "User" && name != "null" && name != "Student") {
@@ -56,12 +65,24 @@ class MarketplaceViewModel : ViewModel() {
             campus = cleanCampus,
             avatarInitial = initial
         )
+        if (cleanId != previousId && isSupabaseUserId(cleanId)) {
+            refreshMarketplace()
+        }
     }
 
-    var listings by mutableStateOf(initialListings)
+    var listings by mutableStateOf<List<Listing>>(emptyList())
         private set
 
     var favorites by mutableStateOf(setOf<String>())
+        private set
+
+    var isMarketplaceLoading by mutableStateOf(false)
+        private set
+
+    var isListingSaving by mutableStateOf(false)
+        private set
+
+    var marketplaceError by mutableStateOf<String?>(null)
         private set
 
     var reviews by mutableStateOf<List<Review>>(
@@ -131,18 +152,78 @@ class MarketplaceViewModel : ViewModel() {
         marketplaceFilters = marketplaceFilters.update()
     }
 
+    fun refreshMarketplace() {
+        viewModelScope.launch {
+            isMarketplaceLoading = true
+            marketplaceError = null
+
+            repository.getListings()
+                .onSuccess { records ->
+                    listings = records.map(::toUiListing)
+                }
+                .onFailure { error ->
+                    marketplaceError = error.userMessage()
+                    showToast("Could not load marketplace: ${error.userMessage()}")
+                }
+
+            if (isSupabaseUserId(currentUser.id)) {
+                repository.getFavoriteListingIds(currentUser.id)
+                    .onSuccess { favorites = it }
+                    .onFailure { error ->
+                        marketplaceError = error.userMessage()
+                    }
+            } else {
+                favorites = emptySet()
+            }
+
+            isMarketplaceLoading = false
+        }
+    }
+
+    private fun toUiListing(record: ListingRecord) = Listing(
+        id = record.id,
+        title = record.title,
+        description = record.description,
+        price = record.priceCents / 100,
+        category = runCatching { Category.valueOf(record.category) }.getOrDefault(Category.OTHER),
+        condition = runCatching { Condition.valueOf(record.condition) }.getOrDefault(Condition.GOOD),
+        sellerId = record.sellerId,
+        location = record.location,
+        createdAt = record.createdAt
+    )
+
+    private fun isSupabaseUserId(id: String): Boolean =
+        runCatching { UUID.fromString(id) }.isSuccess
+
+    private fun Throwable.userMessage(): String =
+        message?.substringBefore("\n")?.take(160) ?: "Unknown Supabase error"
+
     fun getListing(id: String): Listing? = listings.find { it.id == id }
 
     fun isFavorite(listingId: String) = favorites.contains(listingId)
 
     fun toggleFavorite(listingId: String) {
-        val listing = getListing(listingId)
-        favorites = if (favorites.contains(listingId)) {
-            showToast("Removed from saved items")
-            favorites - listingId
-        } else {
-            showToast("Saved \"${listing?.title ?: "item"}\"")
-            favorites + listingId
+        if (!isSupabaseUserId(currentUser.id)) {
+            showToast("Please sign in before saving an item")
+            return
+        }
+
+        val wasFavorite = favorites.contains(listingId)
+        favorites = if (wasFavorite) favorites - listingId else favorites + listingId
+
+        viewModelScope.launch {
+            val result = if (wasFavorite) {
+                repository.removeFavorite(currentUser.id, listingId)
+            } else {
+                repository.addFavorite(currentUser.id, listingId)
+            }
+
+            result.onSuccess {
+                showToast(if (wasFavorite) "Removed from saved items" else "Item saved")
+            }.onFailure { error ->
+                favorites = if (wasFavorite) favorites + listingId else favorites - listingId
+                showToast("Could not update saved item: ${error.userMessage()}")
+            }
         }
     }
 
@@ -231,42 +312,52 @@ class MarketplaceViewModel : ViewModel() {
         price: Int,
         category: Category,
         condition: Condition,
-        location: String
-    ): String? {
-        if (title.isBlank()) return "Item name is required"
-        if (description.isBlank()) return "Description is required"
-        if (price <= 0) return "Price must be greater than 0"
-        if (location.isBlank()) return "Location is required"
-        if (category == Category.ALL) return "Please select a category"
+        location: String,
+        onComplete: (String?) -> Unit
+    ) {
+        val validationError = validateListingInput(title, description, price, category, location)
+        if (validationError != null) {
+            onComplete(validationError)
+            return
+        }
+        if (!isSupabaseUserId(currentUser.id)) {
+            onComplete("Please sign in again before posting a listing")
+            return
+        }
 
-        val id = "listing-${UUID.randomUUID().toString().take(8)}"
-        val listing = Listing(
-            id = id,
-            title = title.trim(),
-            description = description.trim(),
-            price = price,
-            category = category,
-            condition = condition,
-            sellerId = currentUser.id,
-            location = location.trim(),
-            createdAt = "Today"
-        )
-
-        listings = listOf(listing) + listings
-        notifications = listOf(
-            AppNotification(
-                id = "notif-${UUID.randomUUID().toString().take(8)}",
-                userId = currentUser.id,
-                type = NotificationType.LISTING_POSTED,
-                title = "Listing Posted",
-                message = "\"${listing.title}\" was successfully posted!",
-                time = "Just now",
-                read = false
-            )
-        ) + notifications
-
-        showToast("Listing created successfully!")
-        return null
+        viewModelScope.launch {
+            isListingSaving = true
+            repository.createListing(
+                CreateListingRecord(
+                    sellerId = currentUser.id,
+                    title = title.trim(),
+                    description = description.trim(),
+                    priceCents = price * 100,
+                    category = category.name,
+                    condition = condition.name,
+                    location = location.trim()
+                )
+            ).onSuccess { record ->
+                val listing = toUiListing(record)
+                listings = listOf(listing) + listings
+                notifications = listOf(
+                    AppNotification(
+                        id = "notif-${UUID.randomUUID().toString().take(8)}",
+                        userId = currentUser.id,
+                        type = NotificationType.LISTING_POSTED,
+                        title = "Listing Posted",
+                        message = "\"${listing.title}\" was successfully posted!",
+                        time = "Just now",
+                        read = false
+                    )
+                ) + notifications
+                showToast("Listing created successfully!")
+                onComplete(null)
+            }.onFailure { error ->
+                onComplete("Could not create listing: ${error.userMessage()}")
+            }
+            isListingSaving = false
+        }
     }
 
     fun updateListing(
@@ -276,34 +367,66 @@ class MarketplaceViewModel : ViewModel() {
         price: Int,
         category: Category,
         condition: Condition,
-        location: String
-    ): String? {
-        if (title.isBlank()) return "Item name is required"
-        if (description.isBlank()) return "Description is required"
-        if (price <= 0) return "Price must be greater than 0"
-        if (location.isBlank()) return "Location is required"
-        if (category == Category.ALL) return "Please select a category"
+        location: String,
+        onComplete: (String?) -> Unit
+    ) {
+        val validationError = validateListingInput(title, description, price, category, location)
+        if (validationError != null) {
+            onComplete(validationError)
+            return
+        }
 
-        listings = listings.map { listing ->
-            if (listing.id == id) {
-                listing.copy(
+        viewModelScope.launch {
+            isListingSaving = true
+            repository.updateListing(
+                id,
+                UpdateListingRecord(
                     title = title.trim(),
                     description = description.trim(),
-                    price = price,
-                    category = category,
-                    condition = condition,
+                    priceCents = price * 100,
+                    category = category.name,
+                    condition = condition.name,
                     location = location.trim()
                 )
-            } else listing
+            ).onSuccess { record ->
+                listings = listings.map { if (it.id == id) toUiListing(record) else it }
+                showToast("Listing updated")
+                onComplete(null)
+            }.onFailure { error ->
+                onComplete("Could not update listing: ${error.userMessage()}")
+            }
+            isListingSaving = false
         }
-        showToast("Listing updated")
+    }
+
+    private fun validateListingInput(
+        title: String,
+        description: String,
+        price: Int,
+        category: Category,
+        location: String
+    ): String? {
+        if (title.trim().length !in 3..100) return "Item name must contain 3 to 100 characters"
+        if (description.trim().length !in 10..2000) return "Description must contain 10 to 2000 characters"
+        if (price <= 0 || price > 1_000_000) return "Price must be between RM 1 and RM 1,000,000"
+        if (location.trim().length !in 2..120) return "Location must contain 2 to 120 characters"
+        if (category == Category.ALL) return "Please select a category"
         return null
     }
 
     fun deleteListing(id: String) {
+        val removed = getListing(id) ?: return
         listings = listings.filter { it.id != id }
         favorites = favorites - id
-        showToast("Listing deleted")
+
+        viewModelScope.launch {
+            repository.deleteListing(id)
+                .onSuccess { showToast("Listing deleted") }
+                .onFailure { error ->
+                    listings = listOf(removed) + listings
+                    showToast("Could not delete listing: ${error.userMessage()}")
+                }
+        }
     }
 
     fun sendMessage(listingId: String, receiverId: String, text: String) {
@@ -440,7 +563,7 @@ class MarketplaceViewModel : ViewModel() {
     }
 
     fun clearAllUserData() {
-        listings = initialListings
+        listings = emptyList()
         favorites = emptySet()
         notifications = emptyList()
         messages = emptyList()
