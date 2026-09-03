@@ -536,31 +536,35 @@ private fun SavedTab(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = Color.White,
-            border = BorderStroke(0.5.dp, Color(0xFFE5E7EB))
+        // ── Premium header ────────────────────────────────────────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
+                .statusBarsPadding()
+                .padding(horizontal = 20.dp)
+                .padding(top = 12.dp, bottom = 16.dp)
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
                     "Saved Items",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
-                    "${saved.size} items",
+                    "${saved.size} item${if (saved.size != 1) "s" else ""}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(bottom = 4.dp)
                 )
             }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f), thickness = 1.dp)
 
         if (saved.isEmpty()) {
             EmptyState("No saved items yet", "Tap the heart icon on any listing to save it")
@@ -595,31 +599,37 @@ private fun ChatTab(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = Color.White,
-            border = BorderStroke(0.5.dp, Color(0xFFE5E7EB))
+        // ── Premium header ────────────────────────────────────────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
+                .statusBarsPadding()
+                .padding(horizontal = 20.dp)
+                .padding(top = 12.dp, bottom = 16.dp)
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
                     "Messages",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
-                Text(
-                    "${conversations.size} conversations",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary
-                )
+                if (conversations.isNotEmpty()) {
+                    Text(
+                        "${conversations.size} chat${if (conversations.size != 1) "s" else ""}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
             }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f), thickness = 1.dp)
 
         if (conversations.isEmpty()) {
             EmptyState("No messages yet", "Contact sellers on any listing to start chatting")

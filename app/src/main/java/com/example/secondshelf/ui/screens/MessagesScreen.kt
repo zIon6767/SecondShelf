@@ -9,10 +9,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,28 +31,58 @@ fun MessagesScreen(
     onConversationClick: (participantId: String, listingId: String) -> Unit
 ) {
     val conversations = viewModel.conversations
+    val primary = MaterialTheme.colorScheme.primary
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Row(
+
+        // ── Premium header ────────────────────────────────────────────────────
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 20.dp)
+                .padding(top = 12.dp, bottom = 16.dp)
         ) {
-            IconButton(
-                onClick = onNavigateBack,
+            Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(primary.copy(alpha = 0.10f)),
+                contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                IconButton(onClick = onNavigateBack, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
-            Spacer(Modifier.width(12.dp))
-            Text("Messages", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Messages",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                if (conversations.isNotEmpty()) {
+                    Text(
+                        "${conversations.size} chat${if (conversations.size > 1) "s" else ""}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+            }
         }
-
-        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+        HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f), thickness = 1.dp)
 
         if (conversations.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -128,40 +160,68 @@ fun ConversationScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Row(
+
+        // ── Premium conversation header ────────────────────────────────────────
+        val primary = MaterialTheme.colorScheme.primary
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 20.dp)
+                .padding(top = 12.dp, bottom = 14.dp)
         ) {
-            IconButton(
-                onClick = onNavigateBack,
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+            // Back + Rate Deal row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(primary.copy(alpha = 0.10f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    IconButton(onClick = onNavigateBack, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Button(
+                    onClick = { showRatingDialog = true },
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = primary.copy(alpha = 0.12f),
+                        contentColor = primary
+                    ),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Text("★ Rate Deal", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
             }
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(getSellerName(participantId), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(listing?.title ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-            }
-            Button(
-                onClick = { showRatingDialog = true },
-                shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                    contentColor = MaterialTheme.colorScheme.primary
-                ),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                Text("★ Rate Deal", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            Spacer(Modifier.height(12.dp))
+            // Seller name + listing subtitle
+            Text(
+                getSellerName(participantId),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            if (!listing?.title.isNullOrBlank()) {
+                Text(
+                    listing!!.title,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
             }
         }
-
-        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+        HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f), thickness = 1.dp)
 
         LazyColumn(
             modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
@@ -200,7 +260,7 @@ fun ConversationScreen(
             }
         }
 
-        Surface(shadowElevation = 4.dp) {
+        Surface(color = MaterialTheme.colorScheme.background, shadowElevation = 2.dp) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
