@@ -115,9 +115,8 @@ class SupabaseMarketplaceRepository(
     ): Result<Unit> = runCatching {
         validateFavoriteIds(userId, listingId)
 
-        client.from(FAVORITES_TABLE).upsert(
-            FavoriteInsertRecord(userId = userId, listingId = listingId),
-            onConflict = "user_id,listing_id"
+        client.from(FAVORITES_TABLE).insert(
+            FavoriteInsertRecord(userId = userId, listingId = listingId)
         )
         Unit
     }
