@@ -55,7 +55,7 @@ fun CreateListingScreen(
         if (uri != null) {
             runCatching {
                 val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                    ?: error("Could not read the selected image")
+                    ?: throw IllegalStateException("Could not read the selected image")
                 require(bytes.size <= 5 * 1024 * 1024) { "Image must not exceed 5 MB" }
 
                 val mimeType = context.contentResolver.getType(uri).orEmpty()
