@@ -175,19 +175,40 @@ fun CreateListingScreen(
         Button(
             onClick = {
                 val price = priceText.toIntOrNull() ?: 0
-                val result = if (existing != null) {
-                    viewModel.updateListing(existing.id, title, description, price, category, condition, location)
-                } else {
-                    viewModel.createListing(title, description, price, category, condition, location)
+                val handleResult: (String?) -> Unit = { result ->
+                    if (result == null) onSuccess() else error = result
                 }
-                if (result == null) onSuccess() else error = result
+                if (existing != null) {
+                    viewModel.updateListing(
+                        existing.id, title, description, price, category, condition, location,
+                        onComplete = handleResult
+                    )
+                } else {
+                    viewModel.createListing(
+                        title, description, price, category, condition, location,
+                        onComplete = handleResult
+                    )
+                }
             },
+            enabled = !viewModel.isListingSaving,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text(if (existing != null) "Save Changes" else "Post Listing", modifier = Modifier.padding(vertical = 4.dp))
+            if (viewModel.isListingSaving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("Saving…")
+            } else {
+                Text(
+                    if (existing != null) "Save Changes" else "Post Listing",
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+            }
         }
     }
 }
