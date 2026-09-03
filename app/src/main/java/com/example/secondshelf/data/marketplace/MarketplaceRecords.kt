@@ -60,6 +60,16 @@ data class ListingImageRecord(
 )
 
 @Serializable
+data class ListingImageInsertRecord(
+    @SerialName("listing_id")
+    val listingId: String,
+    @SerialName("storage_path")
+    val storagePath: String,
+    @SerialName("display_order")
+    val displayOrder: Int = 0
+)
+
+@Serializable
 data class FavoriteRecord(
     @SerialName("user_id")
     val userId: String,
