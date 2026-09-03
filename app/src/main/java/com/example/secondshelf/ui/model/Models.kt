@@ -70,7 +70,11 @@ data class Listing(
     val location: String,
     val createdAt: String,
     val cardColor: Color = Color(0xFFE8F0FE),
-    val imageUrl: String? = null
+    val imageUrl: String? = null,
+    val sellerName: String = "",
+    val sellerCampus: String = "",
+    val sellerAvatarUrl: String = "",
+    val isOwnedByCurrentUser: Boolean = false
 )
 
 data class AppNotification(
@@ -110,6 +114,30 @@ data class ListingFilters(
 )
 
 fun formatPrice(price: Int) = "RM $price"
+
+fun formatListingDate(value: String): String {
+    val date = value.take(10)
+    val parts = date.split("-")
+    if (parts.size != 3) return value
+
+    val month = when (parts[1]) {
+        "01" -> "Jan"
+        "02" -> "Feb"
+        "03" -> "Mar"
+        "04" -> "Apr"
+        "05" -> "May"
+        "06" -> "Jun"
+        "07" -> "Jul"
+        "08" -> "Aug"
+        "09" -> "Sep"
+        "10" -> "Oct"
+        "11" -> "Nov"
+        "12" -> "Dec"
+        else -> return value
+    }
+    val day = parts[2].trimStart('0').ifBlank { "0" }
+    return "$day $month ${parts[0]}"
+}
 
 // ── Supabase Realtime Chat Models ──────────────────────────────────────────────
 
