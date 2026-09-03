@@ -1,6 +1,8 @@
 package com.example.secondshelf.ui.model
 
 import androidx.compose.ui.graphics.Color
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 enum class Category(val label: String) {
     ALL("All"),
@@ -108,3 +110,30 @@ data class ListingFilters(
 )
 
 fun formatPrice(price: Int) = "RM $price"
+
+// ── Supabase Realtime Chat Models ──────────────────────────────────────────────
+
+/**
+ * Mirrors the `messages` table row in Supabase.
+ * Field names use @SerialName to match the DB's snake_case columns.
+ */
+@Serializable
+data class ChatMessage(
+    val id: String = "",
+    @SerialName("sender_id")   val senderId: String = "",
+    @SerialName("receiver_id") val receiverId: String = "",
+    @SerialName("listing_id")  val listingId: String = "",
+    val content: String = "",
+    @SerialName("is_read")     val isRead: Boolean = false,
+    @SerialName("created_at")  val createdAt: String = ""
+)
+
+/**
+ * Payload tracked via the Supabase Presence API.
+ * Each connected user broadcasts this struct on the shared channel.
+ */
+@Serializable
+data class PresenceState(
+    @SerialName("user_id")   val userId: String,
+    @SerialName("online_at") val onlineAt: String = ""
+)

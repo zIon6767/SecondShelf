@@ -19,6 +19,7 @@ import com.example.secondshelf.ui.AuthUiState
 import com.example.secondshelf.ui.AuthViewModel
 import com.example.secondshelf.ui.screens.*
 import com.example.secondshelf.ui.theme.SecondShelfTheme
+import com.example.secondshelf.ui.viewmodel.ChatViewModel
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 
 @Composable
@@ -302,10 +303,13 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                 navArgument("listingId") { type = NavType.StringType }
             )
         ) { backStackEntry ->
+            val chatViewModel: ChatViewModel = viewModel()
             ConversationScreen(
                 participantId = backStackEntry.arguments?.getString("participantId") ?: return@composable,
                 listingId = backStackEntry.arguments?.getString("listingId") ?: return@composable,
                 viewModel = marketplaceViewModel,
+                chatViewModel = chatViewModel,
+                currentUserId = authViewModel.getUserId(),
                 onNavigateBack = { navController.popBackStack() }
             )
         }
