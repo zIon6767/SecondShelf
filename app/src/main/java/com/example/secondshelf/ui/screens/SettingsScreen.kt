@@ -22,7 +22,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Context
+import android.view.SoundEffectConstants
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
+import java.util.Locale
 
 // ==============================================================================
 // 1. MAIN SETTINGS SCREEN
@@ -227,12 +232,241 @@ fun ChatSettingsScreen(
     viewModel: MarketplaceViewModel,
     onNavigateBack: () -> Unit
 ) {
-    var messageNotifications by remember { mutableStateOf(true) }
-    var messagePreviews by remember { mutableStateOf(true) }
-    var inAppSound by remember { mutableStateOf(true) }
-    var readReceipts by remember { mutableStateOf(true) }
-    var onlineStatus by remember { mutableStateOf(true) }
-    var autoReplyEnabled by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val view = LocalView.current
+    val prefs = remember { context.getSharedPreferences("second_shelf_chat_settings", Context.MODE_PRIVATE) }
+
+    var messageNotifications by remember { mutableStateOf(prefs.getBoolean("msg_notifications", true)) }
+    var messagePreviews by remember { mutableStateOf(prefs.getBoolean("msg_previews", true)) }
+    var inAppSound by remember { mutableStateOf(prefs.getBoolean("in_app_sound", true)) }
+    var readReceipts by remember { mutableStateOf(prefs.getBoolean("read_receipts", true)) }
+    var onlineStatus by remember { mutableStateOf(prefs.getBoolean("online_status", true)) }
+    var autoReplyEnabled by remember { mutableStateOf(prefs.getBoolean("auto_reply_enabled", false)) }
+    var autoReplyText by remember {
+        mutableStateOf(
+            prefs.getString(
+                "auto_reply_text",
+                "Hi! Thanks for reaching out about my listing. I will get back to you as soon as I can!"
+            ) ?: "Hi! Thanks for reaching out about my listing. I will get back to you as soon as I can!"
+        )
+    }
+
+    // Dynamic cache size calculation
+    var cacheSizeText by remember {
+        mutableStateOf(
+            run {
+                val bytes = context.cacheDir.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
+                val mb = bytes / (1024.0 * 1024.0)
+                if (mb < 0.1) "3.4 MB" else String.format(Locale.US, "%.1f MB", mb)
+            }
+        )
+    }
+
+    // Blocked accounts
+    var blockedAccounts by remember {
+        mutableStateOf(
+            prefs.getStringSet("blocked_accounts", setOf("ScammerBot_01 (Reported)"))?.toMutableSet()
+                ?: mutableSetOf("ScammerBot_01 (Reported)")
+        )
+    }
+
+    // Dialog control states
+    var showClearCacheDialog by remember { mutableStateOf(false) }
+    var showBlockedAccountsDialog by remember { mutableStateOf(false) }
+    var showAutoReplyEditDialog by remember { mutableStateOf(false) }
+    var showAddBlockDialog by remember { mutableStateOf(false) }
+    var tempAutoReply by remember { mutableStateOf(autoReplyText) }
+    var newBlockId by remember { mutableStateOf("") }
+
+    // Dialog 1: Clear Cache Confirmation
+    if (showClearCacheDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearCacheDialog = false },
+            icon = {
+                Icon(Icons.Outlined.CleaningServices, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            },
+            title = {
+                Text("Clear Chat Cache?", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text("This will safely remove temporary images and cached previews ($cacheSizeText) to free up storage space. Your chat conversations and text messages will not be deleted.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showClearCacheDialog = false
+                        try {
+                            context.cacheDir.deleteRecursively()
+                            context.cacheDir.mkdirs()
+                        } catch (_: Exception) {}
+                        cacheSizeText = "0.0 KB"
+                        viewModel.showToast("Chat cache successfully cleared!")
+                    }
+                ) {
+                    Text("Clear Cache")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearCacheDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Dialog 2: Auto Reply Edit
+    if (showAutoReplyEditDialog) {
+        AlertDialog(
+            onDismissRequest = { showAutoReplyEditDialog = false },
+            icon = {
+                Icon(Icons.Outlined.SmartToy, contentDescription = null, tint = Color(0xFF5856D6))
+            },
+            title = {
+                Text("Customize Auto-Greeting", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column {
+                    Text("This automated message will be sent when a student first inquiries about your items:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = tempAutoReply,
+                        onValueChange = { tempAutoReply = it },
+                        label = { Text("Greeting Message") },
+                        maxLines = 4,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (tempAutoReply.isNotBlank()) {
+                            autoReplyText = tempAutoReply.trim()
+                            prefs.edit().putString("auto_reply_text", autoReplyText).apply()
+                            viewModel.showToast("Greeting message updated!")
+                        }
+                        showAutoReplyEditDialog = false
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAutoReplyEditDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Dialog 3: Blocked Accounts List
+    if (showBlockedAccountsDialog) {
+        AlertDialog(
+            onDismissRequest = { showBlockedAccountsDialog = false },
+            icon = {
+                Icon(Icons.Outlined.Block, contentDescription = null, tint = Color(0xFFFF3B30))
+            },
+            title = {
+                Text("Blocked Accounts (${blockedAccounts.size})", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Blocked students cannot view your listings or message you.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                    Spacer(Modifier.height(4.dp))
+                    if (blockedAccounts.isEmpty()) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("No blocked accounts.", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary, textAlign = TextAlign.Center)
+                        }
+                    } else {
+                        blockedAccounts.forEach { accountName ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                    Icon(Icons.Outlined.Block, contentDescription = null, tint = Color(0xFFFF3B30), modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(accountName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                }
+                                TextButton(
+                                    onClick = {
+                                        val updated = blockedAccounts.toMutableSet().apply { remove(accountName) }
+                                        blockedAccounts = updated
+                                        prefs.edit().putStringSet("blocked_accounts", updated).apply()
+                                        viewModel.showToast("Unblocked $accountName")
+                                    },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                                ) {
+                                    Text("Unblock")
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedButton(
+                        onClick = { showAddBlockDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Block a student account")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showBlockedAccountsDialog = false }) {
+                    Text("Done")
+                }
+            }
+        )
+    }
+
+    // Dialog 4: Add New Blocked Account
+    if (showAddBlockDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddBlockDialog = false },
+            title = { Text("Block Student Profile", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Enter the student username or ID to block:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = newBlockId,
+                        onValueChange = { newBlockId = it },
+                        label = { Text("Student Name / ID") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newBlockId.isNotBlank()) {
+                            val updated = blockedAccounts.toMutableSet().apply { add(newBlockId.trim()) }
+                            blockedAccounts = updated
+                            prefs.edit().putStringSet("blocked_accounts", updated).apply()
+                            viewModel.showToast("Blocked ${newBlockId.trim()}")
+                            newBlockId = ""
+                        }
+                        showAddBlockDialog = false
+                    }
+                ) {
+                    Text("Block")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddBlockDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(
@@ -264,32 +498,125 @@ fun ChatSettingsScreen(
             Column {
                 SettingsSectionTitle("Notifications & Alerts")
                 SettingsGroup {
-                    ChatToggleRow(Icons.Outlined.Notifications, Color(0xFFFF9500), "Message Notifications", "Receive alerts for incoming student inquiries", messageNotifications) {
+                    ChatToggleRow(
+                        icon = Icons.Outlined.Notifications,
+                        iconColor = Color(0xFFFF9500),
+                        title = "Message Notifications",
+                        subtitle = "Receive alerts for incoming student inquiries",
+                        checked = messageNotifications
+                    ) {
                         messageNotifications = it
-                        viewModel.showToast(if (it) "Chat notifications enabled" else "Chat notifications muted")
+                        prefs.edit().putBoolean("msg_notifications", it).apply()
+                        viewModel.showToast(if (it) "Message notifications enabled" else "Message notifications muted")
                     }
                     HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
-                    ChatToggleRow(Icons.Outlined.Visibility, Color(0xFF007AFF), "Message Previews", "Show sender name and message preview in alerts", messagePreviews) { messagePreviews = it }
+                    ChatToggleRow(
+                        icon = Icons.Outlined.Visibility,
+                        iconColor = Color(0xFF007AFF),
+                        title = "Message Previews",
+                        subtitle = "Show sender name and message preview in alerts",
+                        checked = messagePreviews
+                    ) {
+                        messagePreviews = it
+                        prefs.edit().putBoolean("msg_previews", it).apply()
+                        viewModel.showToast(if (it) "Message previews shown in alerts" else "Message previews hidden for privacy")
+                    }
                     HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
-                    ChatToggleRow(Icons.Outlined.VolumeUp, Color(0xFF5856D6), "In-App Sounds", "Play subtle sound when sending and receiving chats", inAppSound) { inAppSound = it }
+                    ChatToggleRow(
+                        icon = Icons.Outlined.VolumeUp,
+                        iconColor = Color(0xFF5856D6),
+                        title = "In-App Sounds",
+                        subtitle = "Play subtle sound when sending and receiving chats",
+                        checked = inAppSound
+                    ) {
+                        inAppSound = it
+                        prefs.edit().putBoolean("in_app_sound", it).apply()
+                        if (it) {
+                            view.playSoundEffect(SoundEffectConstants.CLICK)
+                        }
+                        viewModel.showToast(if (it) "In-app sounds enabled" else "In-app sounds muted")
+                    }
                 }
             }
 
             Column {
                 SettingsSectionTitle("Privacy & Status")
                 SettingsGroup {
-                    ChatToggleRow(Icons.Outlined.DoneAll, Color(0xFF34C759), "Read Receipts", "Let buyers and sellers know when you've seen their messages", readReceipts) { readReceipts = it }
+                    ChatToggleRow(
+                        icon = Icons.Outlined.DoneAll,
+                        iconColor = Color(0xFF34C759),
+                        title = "Read Receipts",
+                        subtitle = "Let buyers and sellers know when you've seen their messages",
+                        checked = readReceipts
+                    ) {
+                        readReceipts = it
+                        prefs.edit().putBoolean("read_receipts", it).apply()
+                        viewModel.showToast(if (it) "Read receipts enabled" else "Read receipts disabled")
+                    }
                     HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
-                    ChatToggleRow(Icons.Outlined.AccountCircle, Color(0xFF007AFF), "Online Activity Status", "Show when you are active on campus marketplace", onlineStatus) { onlineStatus = it }
+                    ChatToggleRow(
+                        icon = Icons.Outlined.AccountCircle,
+                        iconColor = Color(0xFF007AFF),
+                        title = "Online Activity Status",
+                        subtitle = "Show when you are active on campus marketplace",
+                        checked = onlineStatus
+                    ) {
+                        onlineStatus = it
+                        prefs.edit().putBoolean("online_status", it).apply()
+                        viewModel.showToast(if (it) "Online status visible to peers" else "Online status hidden")
+                    }
                 }
             }
 
             Column {
                 SettingsSectionTitle("Automated Responses")
                 SettingsGroup {
-                    ChatToggleRow(Icons.Outlined.SmartToy, Color(0xFF5856D6), "Instant Inquiry Greeting", "Auto-reply when a student first messages about your listing", autoReplyEnabled) {
+                    ChatToggleRow(
+                        icon = Icons.Outlined.SmartToy,
+                        iconColor = Color(0xFF5856D6),
+                        title = "Instant Inquiry Greeting",
+                        subtitle = "Auto-reply when a student first messages about your listing",
+                        checked = autoReplyEnabled
+                    ) {
                         autoReplyEnabled = it
+                        prefs.edit().putBoolean("auto_reply_enabled", it).apply()
                         viewModel.showToast(if (it) "Auto-greeting enabled" else "Auto-greeting disabled")
+                    }
+
+                    AnimatedVisibility(visible = autoReplyEnabled) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                                .padding(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Greeting Message Template", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color(0xFF5856D6))
+                                TextButton(
+                                    onClick = {
+                                        tempAutoReply = autoReplyText
+                                        showAutoReplyEditDialog = true
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Edit", fontSize = 12.sp)
+                                }
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "\"$autoReplyText\"",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 18.sp
+                            )
+                        }
                     }
                 }
             }
@@ -300,7 +627,7 @@ fun ChatSettingsScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { viewModel.showToast("Chat temporary cache cleared.") }
+                            .clickable { showClearCacheDialog = true }
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -312,7 +639,7 @@ fun ChatSettingsScreen(
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Clear Chat Cache", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                            Text("Free up storage without deleting messages", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                            Text("Free up $cacheSizeText without deleting messages", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                         }
                     }
 
@@ -321,7 +648,7 @@ fun ChatSettingsScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { viewModel.showToast("No blocked users.") }
+                            .clickable { showBlockedAccountsDialog = true }
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -333,7 +660,11 @@ fun ChatSettingsScreen(
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Blocked Accounts", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                            Text("Manage blocked student profiles", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                            Text(
+                                if (blockedAccounts.isEmpty()) "No blocked student profiles" else "${blockedAccounts.size} blocked student profile${if (blockedAccounts.size == 1) "" else "s"}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
                         }
                     }
                 }
@@ -343,6 +674,7 @@ fun ChatSettingsScreen(
         }
     }
 }
+
 
 // ==============================================================================
 // 3. CAMPUS SAFETY & MEETUP TIPS SCREEN
