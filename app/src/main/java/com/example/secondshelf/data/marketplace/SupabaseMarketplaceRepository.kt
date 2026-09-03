@@ -138,6 +138,13 @@ class SupabaseMarketplaceRepository(
         Unit
     }
 
+    suspend fun getSellerProfiles(): Result<Map<String, SellerProfileRecord>> = runCatching {
+        client.from(PROFILES_TABLE)
+            .select()
+            .decodeList<SellerProfileRecord>()
+            .associateBy(SellerProfileRecord::id)
+    }
+
     suspend fun getListingImageUrls(): Result<Map<String, String>> = runCatching {
         client.from(LISTING_IMAGES_TABLE)
             .select()
@@ -228,6 +235,7 @@ class SupabaseMarketplaceRepository(
     private companion object {
         const val LISTINGS_TABLE = "listings"
         const val FAVORITES_TABLE = "favorites"
+        const val PROFILES_TABLE = "profiles"
         const val LISTING_IMAGES_TABLE = "listing_images"
         const val LISTING_IMAGES_BUCKET = "listing-images"
         const val ACTIVE_STATUS = "ACTIVE"
