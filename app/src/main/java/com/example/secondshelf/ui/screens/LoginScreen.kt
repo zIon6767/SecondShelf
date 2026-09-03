@@ -41,7 +41,7 @@ private fun isValidLoginEmail(email: String): Boolean {
 
 @Composable
 fun LoginScreen(
-    viewModel: AuthViewModel,
+    viewModel: AuthViewModel? = null,
     onNavigateToHome: () -> Unit,
     onNavigateToRegister: () -> Unit
 ) {
@@ -51,7 +51,7 @@ fun LoginScreen(
     var emailError      by remember { mutableStateOf("") }
     var passwordError   by remember { mutableStateOf("") }
 
-    val uiState      by viewModel.uiState.collectAsState()
+    val uiState      = viewModel?.uiState?.collectAsState()?.value ?: AuthUiState.Idle
     val isLoading    = uiState is AuthUiState.Loading
     val errorMessage = (uiState as? AuthUiState.Error)?.message ?: ""
 
@@ -60,7 +60,7 @@ fun LoginScreen(
     //Navigate to home when Supabase auth succeeds
     LaunchedEffect(uiState) {
         if (uiState is AuthUiState.Success) {
-            viewModel.resetState()
+            viewModel?.resetState()
             onNavigateToHome()
         }
     }
@@ -135,7 +135,7 @@ fun LoginScreen(
             onValueChange = {
                 email = it
                 emailError = ""
-                if (uiState is AuthUiState.Error) viewModel.resetState()
+                if (uiState is AuthUiState.Error) viewModel?.resetState()
             },
             placeholder = { Text("Enter your email") },
             leadingIcon = {
@@ -172,7 +172,7 @@ fun LoginScreen(
             onValueChange = {
                 password = it
                 passwordError = ""
-                if (uiState is AuthUiState.Error) viewModel.resetState()
+                if (uiState is AuthUiState.Error) viewModel?.resetState()
             },
             placeholder = { Text("Enter your password") },
             leadingIcon = {
@@ -231,7 +231,7 @@ fun LoginScreen(
                     passwordError = "Password must be at least 6 characters."
                     valid = false
                 }
-                if (valid) viewModel.signIn(email.trim(), password)
+                if (valid) viewModel?.signIn(email.trim(), password)
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -266,7 +266,7 @@ fun LoginScreen(
 
         //Google button
         OutlinedButton(
-            onClick = { viewModel.signInWithGoogle(context) },
+            onClick = { viewModel?.signInWithGoogle(context) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
@@ -310,3 +310,15 @@ fun LoginScreen(
         }
     }
 }
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun LoginScreenPreview() {
+    com.example.secondshelf.ui.theme.SecondShelfTheme {
+        LoginScreen(
+            onNavigateToHome = {},
+            onNavigateToRegister = {}
+        )
+    }
+}
+

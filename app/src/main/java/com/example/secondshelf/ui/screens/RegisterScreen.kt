@@ -42,7 +42,7 @@ private fun isValidEmail(email: String): Boolean {
 
 @Composable
 fun RegisterScreen(
-    viewModel: AuthViewModel,
+    viewModel: AuthViewModel? = null,
     onNavigateToSetPassword: (name: String, email: String, phone: String) -> Unit,
     onNavigateToLogin: () -> Unit,
     onNavigateToHome: () -> Unit,
@@ -57,7 +57,7 @@ fun RegisterScreen(
     var agreeToTerms by remember { mutableStateOf(false) }
     var termsError by remember { mutableStateOf("") }
 
-    val uiState   by viewModel.uiState.collectAsState()
+    val uiState   = viewModel?.uiState?.collectAsState()?.value ?: AuthUiState.Idle
     val isLoading = uiState is AuthUiState.Loading
     val apiError  = (uiState as? AuthUiState.Error)?.message ?: ""
 
@@ -66,7 +66,7 @@ fun RegisterScreen(
     // Handle Google Sign-In success from this screen
     LaunchedEffect(uiState) {
         if (uiState is AuthUiState.Success) {
-            viewModel.resetState()
+            viewModel?.resetState()
             onNavigateToHome()
         }
     }
@@ -333,7 +333,7 @@ fun RegisterScreen(
 
         //Google Sign-Up button
         OutlinedButton(
-            onClick = { viewModel.signInWithGoogle(context) },
+            onClick = { viewModel?.signInWithGoogle(context) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
@@ -377,3 +377,16 @@ fun RegisterScreen(
         }
     }
 }
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun RegisterScreenPreview() {
+    com.example.secondshelf.ui.theme.SecondShelfTheme {
+        RegisterScreen(
+            onNavigateToSetPassword = { _, _, _ -> },
+            onNavigateToLogin = {},
+            onNavigateToHome = {}
+        )
+    }
+}
+

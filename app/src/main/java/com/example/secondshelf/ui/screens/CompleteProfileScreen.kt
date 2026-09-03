@@ -30,21 +30,21 @@ import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CompleteProfileScreen(
-    authViewModel: AuthViewModel,
-    marketplaceViewModel: MarketplaceViewModel,
+    authViewModel: AuthViewModel? = null,
+    marketplaceViewModel: MarketplaceViewModel? = null,
     onNavigateToHome: () -> Unit
 ) {
-    val initialName = authViewModel.getUserFullName().let {
+    val initialName = authViewModel?.getUserFullName()?.let {
         if (it == "User" || it == "Student" || it == "null") "" else it
-    }
-    val email = authViewModel.getUserEmail()
+    } ?: ""
+    val email = authViewModel?.getUserEmail() ?: ""
 
     var fullName by remember { mutableStateOf(initialName) }
     var selectedCampus by remember { mutableStateOf("KL Main Campus") }
     var phone by remember { mutableStateOf("") }
     var errorText by remember { mutableStateOf<String?>(null) }
 
-    val uiState by authViewModel.uiState.collectAsState()
+    val uiState = authViewModel?.uiState?.collectAsState()?.value ?: AuthUiState.Idle
     val isLoading = uiState is AuthUiState.Loading
 
     val campuses = listOf(
@@ -252,15 +252,19 @@ fun CompleteProfileScreen(
                         errorText = "Invalid phone number."
                         return@Button
                     }
-                    authViewModel.updateUserProfile(
-                        fullName = fullName.trim(),
-                        campus = selectedCampus
-                    ) {
-                        marketplaceViewModel.syncAuthUser(
-                            name = fullName.trim(),
-                            email = email,
+                    if (authViewModel != null) {
+                        authViewModel.updateUserProfile(
+                            fullName = fullName.trim(),
                             campus = selectedCampus
-                        )
+                        ) {
+                            marketplaceViewModel?.syncAuthUser(
+                                name = fullName.trim(),
+                                email = email,
+                                campus = selectedCampus
+                            )
+                            onNavigateToHome()
+                        }
+                    } else {
                         onNavigateToHome()
                     }
                 },
@@ -287,3 +291,14 @@ fun CompleteProfileScreen(
         }
     }
 }
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun CompleteProfileScreenPreview() {
+    com.example.secondshelf.ui.theme.SecondShelfTheme {
+        CompleteProfileScreen(
+            onNavigateToHome = {}
+        )
+    }
+}
+

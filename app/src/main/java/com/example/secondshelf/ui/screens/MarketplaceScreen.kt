@@ -174,3 +174,16 @@ private fun MarketplaceFiltersPanel(
         }
     }
 }
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun MarketplaceScreenPreview() {
+    com.example.secondshelf.ui.theme.SecondShelfTheme {
+        MarketplaceScreen(
+            viewModel = MarketplaceViewModel(),
+            onNavigateBack = {},
+            onListingClick = {}
+        )
+    }
+}
+

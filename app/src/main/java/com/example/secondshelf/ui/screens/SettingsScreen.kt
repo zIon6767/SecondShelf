@@ -1097,3 +1097,35 @@ private fun TermsCard(icon: ImageVector, title: String, content: String) {
         }
     }
 }
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun SettingsScreenPreview() {
+    com.example.secondshelf.ui.theme.SecondShelfTheme {
+        SettingsScreen(
+            viewModel = MarketplaceViewModel(),
+            onNavigateBack = {},
+            onNavigateToEditProfile = {},
+            onNavigateToMyListings = {},
+            onNavigateToSaved = {},
+            onNavigateToChatSettings = {},
+            onNavigateToTerms = {},
+            onNavigateToCampusSafety = {},
+            onNavigateToAbout = {},
+            onLogout = {},
+            onDeleteAccount = {}
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun ChatSettingsScreenPreview() {
+    com.example.secondshelf.ui.theme.SecondShelfTheme {
+        ChatSettingsScreen(
+            viewModel = MarketplaceViewModel(),
+            onNavigateBack = {}
+        )
+    }
+}
+

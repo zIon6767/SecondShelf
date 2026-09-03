@@ -65,7 +65,7 @@ fun SavedItemsScreen(
 @Composable
 fun EditProfileScreen(
     viewModel: MarketplaceViewModel,
-    authViewModel: com.example.secondshelf.ui.AuthViewModel,
+    authViewModel: com.example.secondshelf.ui.AuthViewModel? = null,
     onNavigateBack: () -> Unit
 ) {
     val user = viewModel.currentUser
@@ -78,9 +78,9 @@ fun EditProfileScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var isSaving by remember { mutableStateOf(false) }
 
-    val avatarUrl = authViewModel.cachedAvatarUrl.ifBlank { user.avatarUrl }
-    val isUploading = authViewModel.isUploadingAvatar
-    val uploadError = authViewModel.avatarUploadError
+    val avatarUrl = authViewModel?.cachedAvatarUrl?.ifBlank { user.avatarUrl } ?: user.avatarUrl
+    val isUploading = authViewModel?.isUploadingAvatar ?: false
+    val uploadError = authViewModel?.avatarUploadError
 
     val campuses = remember {
         listOf(
@@ -97,7 +97,7 @@ fun EditProfileScreen(
     val imagePicker = rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
     ) { uri: android.net.Uri? ->
-        uri?.let { authViewModel.uploadAvatar(it) }
+        uri?.let { authViewModel?.uploadAvatar(it) }
     }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -251,7 +251,7 @@ fun EditProfileScreen(
                             Spacer(Modifier.width(10.dp))
                             Column {
                                 Text(
-                                    text = user.email.ifBlank { authViewModel.getUserEmail().ifBlank { "Not specified" } },
+                                    text = user.email.ifBlank { authViewModel?.getUserEmail()?.ifBlank { "Not specified" } ?: "Not specified" },
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -470,7 +470,7 @@ fun EditProfileScreen(
                         return@Button
                     }
                     isSaving = true
-                    val currentAvatar = authViewModel.cachedAvatarUrl.ifBlank { user.avatarUrl }
+                    val currentAvatar = authViewModel?.cachedAvatarUrl?.ifBlank { user.avatarUrl } ?: user.avatarUrl
                     val result = viewModel.updateProfile(
                         name = name,
                         campus = selectedCampus,
@@ -479,10 +479,15 @@ fun EditProfileScreen(
                     )
                     if (result == null) {
                         // Persist to session and Supabase user metadata
-                        authViewModel.updateUserProfile(
-                            fullName = name.trim(),
-                            campus = selectedCampus
-                        ) {
+                        if (authViewModel != null) {
+                            authViewModel.updateUserProfile(
+                                fullName = name.trim(),
+                                campus = selectedCampus
+                            ) {
+                                isSaving = false
+                                onNavigateBack()
+                            }
+                        } else {
                             isSaving = false
                             onNavigateBack()
                         }
@@ -582,3 +587,27 @@ fun TopBar(
         thickness = 1.dp
     )
 }
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun EditProfileScreenPreview() {
+    com.example.secondshelf.ui.theme.SecondShelfTheme {
+        EditProfileScreen(
+            viewModel = MarketplaceViewModel(),
+            onNavigateBack = {}
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun SavedItemsScreenPreview() {
+    com.example.secondshelf.ui.theme.SecondShelfTheme {
+        SavedItemsScreen(
+            viewModel = MarketplaceViewModel(),
+            onNavigateBack = {},
+            onListingClick = {}
+        )
+    }
+}
+

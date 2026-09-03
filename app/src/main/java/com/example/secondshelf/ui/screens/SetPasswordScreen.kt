@@ -38,7 +38,7 @@ import androidx.compose.material.icons.filled.MarkEmailRead
 
 @Composable
 fun SetPasswordScreen(
-    viewModel: AuthViewModel,
+    viewModel: AuthViewModel? = null,
     userName: String  = "",
     userEmail: String = "",
     userPhone: String = "",
@@ -52,7 +52,7 @@ fun SetPasswordScreen(
     var confirmPasswordVisible by remember { mutableStateOf(false) }
     var agreeToTerms by remember { mutableStateOf(false) }
 
-    val uiState   by viewModel.uiState.collectAsState()
+    val uiState   = viewModel?.uiState?.collectAsState()?.value ?: AuthUiState.Idle
     val isLoading = uiState is AuthUiState.Loading
     val apiError  = (uiState as? AuthUiState.Error)?.message ?: ""
 
@@ -66,7 +66,7 @@ fun SetPasswordScreen(
     // Navigate to home on successful registration (session confirmed)
     LaunchedEffect(uiState) {
         if (uiState is AuthUiState.Success) {
-            viewModel.resetState()
+            viewModel?.resetState()
             onNavigateToHome()
         }
     }
@@ -76,7 +76,7 @@ fun SetPasswordScreen(
         EmailConfirmationScreen(
             email = (uiState as AuthUiState.EmailConfirmationRequired).email,
             onBackToLogin = {
-                viewModel.resetState()
+                viewModel?.resetState()
                 onNavigateBack()
             }
         )
@@ -86,7 +86,7 @@ fun SetPasswordScreen(
     // Reset API error when user starts typing
     val onPasswordChange: (String) -> Unit = {
         password = it
-        if (uiState is AuthUiState.Error) viewModel.resetState()
+        if (uiState is AuthUiState.Error) viewModel?.resetState()
     }
 
     Column(
@@ -287,7 +287,7 @@ fun SetPasswordScreen(
                     else              -> ""
                 }
                 if (localError.isEmpty()) {
-                    viewModel.signUp(
+                    viewModel?.signUp(
                         email    = userEmail,
                         password = password,
                         fullName = userName,
@@ -417,3 +417,18 @@ fun EmailConfirmationScreen(
         }
     }
 }
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun SetPasswordScreenPreview() {
+    com.example.secondshelf.ui.theme.SecondShelfTheme {
+        SetPasswordScreen(
+            userName = "Sarah Lee",
+            userEmail = "sarahlee@student.tarc.edu.my",
+            userPhone = "0123456789",
+            onNavigateToHome = {},
+            onNavigateBack = {}
+        )
+    }
+}
+
