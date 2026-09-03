@@ -173,9 +173,14 @@ class MarketplaceViewModel(
             isMarketplaceLoading = true
             marketplaceError = null
 
+            val imageUrls = repository.getListingImageUrls()
+                .getOrElse { emptyMap() }
+
             repository.getListings()
                 .onSuccess { records ->
-                    listings = records.map(::toUiListing)
+                    listings = records.map { record ->
+                        toUiListing(record, imageUrls[record.id])
+                    }
                 }
                 .onFailure { error ->
                     marketplaceError = error.userMessage()
@@ -196,7 +201,10 @@ class MarketplaceViewModel(
         }
     }
 
-    private fun toUiListing(record: ListingRecord) = Listing(
+    private fun toUiListing(
+        record: ListingRecord,
+        imageUrl: String? = null
+    ) = Listing(
         id = record.id,
         title = record.title,
         description = record.description,
@@ -205,7 +213,8 @@ class MarketplaceViewModel(
         condition = runCatching { Condition.valueOf(record.condition) }.getOrDefault(Condition.GOOD),
         sellerId = record.sellerId,
         location = record.location,
-        createdAt = record.createdAt
+        createdAt = record.createdAt,
+        imageUrl = imageUrl
     )
 
     private fun isSupabaseUserId(id: String): Boolean =
@@ -332,6 +341,8 @@ class MarketplaceViewModel(
         category: Category,
         condition: Condition,
         location: String,
+        imageBytes: ByteArray? = null,
+        imageExtension: String = "jpg",
         onComplete: (String?) -> Unit
     ) {
         val validationError = validateListingInput(title, description, price, category, location)
@@ -366,7 +377,22 @@ class MarketplaceViewModel(
                     location = location.trim()
                 )
             ).onSuccess { record ->
-                val listing = toUiListing(record)
+                var imageUrl: String? = null
+                if (imageBytes != null) {
+                    repository.uploadListingImage(
+                        listingId = record.id,
+                        userId = sellerId,
+                        bytes = imageBytes,
+                        extension = imageExtension
+                    ).onSuccess { uploadedUrl ->
+                        imageUrl = uploadedUrl
+                    }.onFailure { uploadError ->
+                        marketplaceError = uploadError.userMessage()
+                        showToast("Listing posted, but image upload failed: ${uploadError.userMessage()}")
+                    }
+                }
+
+                val listing = toUiListing(record, imageUrl)
                 listings = listOf(listing) + listings
                 notifications = listOf(
                     AppNotification(
