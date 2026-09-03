@@ -60,6 +60,15 @@ data class ListingImageRecord(
 )
 
 @Serializable
+data class SellerProfileRecord(
+    val id: String,
+    val name: String = "Student",
+    val campus: String = "",
+    @SerialName("avatar_url")
+    val avatarUrl: String = ""
+)
+
+@Serializable
 data class ListingImageInsertRecord(
     @SerialName("listing_id")
     val listingId: String,
