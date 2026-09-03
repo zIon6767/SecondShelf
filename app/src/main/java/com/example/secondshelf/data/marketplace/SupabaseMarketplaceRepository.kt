@@ -3,6 +3,8 @@ package com.example.secondshelf.data.marketplace
 import com.example.secondshelf.supabase
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.storage.storage
+import java.util.UUID
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -136,6 +138,46 @@ class SupabaseMarketplaceRepository(
         Unit
     }
 
+    suspend fun getListingImageUrls(): Result<Map<String, String>> = runCatching {
+        client.from(LISTING_IMAGES_TABLE)
+            .select()
+            .decodeList<ListingImageRecord>()
+            .sortedBy(ListingImageRecord::displayOrder)
+            .associate { image ->
+                image.listingId to client.storage
+                    .from(LISTING_IMAGES_BUCKET)
+                    .publicUrl(image.storagePath)
+            }
+    }
+
+    suspend fun uploadListingImage(
+        listingId: String,
+        userId: String,
+        bytes: ByteArray,
+        extension: String
+    ): Result<String> = runCatching {
+        require(listingId.isNotBlank()) { "Listing ID is required" }
+        require(userId.isNotBlank()) { "You must be signed in" }
+        require(bytes.isNotEmpty()) { "The selected image is empty" }
+        require(bytes.size <= MAX_IMAGE_BYTES) { "Image must not exceed 5 MB" }
+
+        val safeExtension = extension.lowercase().takeIf {
+            it == "jpg" || it == "jpeg" || it == "png" || it == "webp"
+        } ?: "jpg"
+        val storagePath = "$userId/$listingId/${UUID.randomUUID()}.$safeExtension"
+        val bucket = client.storage.from(LISTING_IMAGES_BUCKET)
+
+        bucket.upload(storagePath, bytes)
+        client.from(LISTING_IMAGES_TABLE).insert(
+            ListingImageInsertRecord(
+                listingId = listingId,
+                storagePath = storagePath
+            )
+        )
+
+        bucket.publicUrl(storagePath)
+    }
+
     private fun validateCreateInput(input: CreateListingRecord) {
         validateListingFields(
             sellerId = input.sellerId,
@@ -186,8 +228,11 @@ class SupabaseMarketplaceRepository(
     private companion object {
         const val LISTINGS_TABLE = "listings"
         const val FAVORITES_TABLE = "favorites"
+        const val LISTING_IMAGES_TABLE = "listing_images"
+        const val LISTING_IMAGES_BUCKET = "listing-images"
         const val ACTIVE_STATUS = "ACTIVE"
         const val MAX_PRICE_CENTS = 100_000_000
+        const val MAX_IMAGE_BYTES = 5 * 1024 * 1024
     }
 }
 
