@@ -25,7 +25,8 @@ class MarketplaceViewModel : ViewModel() {
         name: String = "",
         email: String = "",
         university: String = "",
-        campus: String = ""
+        campus: String = "",
+        avatarUrl: String = ""
     ) {
         val cleanId = id.ifBlank { currentUser.id }
         val cleanEmail = if (email.isNotBlank() && email != "user@example.com" && email != "null") email else currentUser.email
@@ -41,6 +42,7 @@ class MarketplaceViewModel : ViewModel() {
         }
         val cleanUni = if (university.isNotBlank() && university != "null") university else currentUser.university
         val cleanCampus = if (campus.isNotBlank() && campus != "null") campus else currentUser.campus
+        val cleanAvatarUrl = if (avatarUrl.isNotBlank()) avatarUrl else currentUser.avatarUrl
         val initial = if (cleanName.isNotBlank() && cleanName != "Student") {
             cleanName.first().uppercaseChar().toString()
         } else if (cleanEmail.isNotBlank()) {
@@ -54,7 +56,8 @@ class MarketplaceViewModel : ViewModel() {
             email = cleanEmail,
             university = cleanUni,
             campus = cleanCampus,
-            avatarInitial = initial
+            avatarInitial = initial,
+            avatarUrl = cleanAvatarUrl
         )
     }
 
@@ -374,16 +377,14 @@ class MarketplaceViewModel : ViewModel() {
 
     fun canChangeName(): Boolean = getDaysUntilNextNameChange() == 0
 
-    fun updateProfile(name: String, email: String, university: String, campus: String): String? {
+    fun updateProfile(
+        name: String,
+        campus: String,
+        bio: String = currentUser.bio,
+        avatarUrl: String = currentUser.avatarUrl
+    ): String? {
         val trimmedName = name.trim()
-        if (trimmedName.isBlank()) return "Name is required"
-        val trimmedEmail = email.trim()
-        if (trimmedEmail.isBlank()) return "Email is required"
-
-        val studentEmailRegex = "^[A-Za-z0-9+_.-]+@student\\.tarc\\.edu\\.my$".toRegex(RegexOption.IGNORE_CASE)
-        if (!studentEmailRegex.matches(trimmedEmail)) {
-            return "Invalid email address"
-        }
+        if (trimmedName.isBlank()) return "Name cannot be blank"
 
         var newLastNameChange = currentUser.lastNameChangeTimestamp
         if (trimmedName != currentUser.name) {
@@ -396,10 +397,10 @@ class MarketplaceViewModel : ViewModel() {
 
         currentUser = currentUser.copy(
             name = trimmedName,
-            email = trimmedEmail,
-            university = university.trim(),
-            campus = campus.trim(),
-            avatarInitial = trimmedName.first().uppercaseChar().toString(),
+            campus = campus.trim().ifBlank { "KL Main Campus" },
+            bio = bio.trim().ifBlank { "TAR UMT Student" },
+            avatarInitial = if (trimmedName.isNotBlank()) trimmedName.first().uppercaseChar().toString() else "U",
+            avatarUrl = if (avatarUrl.isNotBlank()) avatarUrl else currentUser.avatarUrl,
             lastNameChangeTimestamp = newLastNameChange
         )
         showToast("Profile updated successfully")

@@ -15,6 +15,7 @@ class SessionManager(context: Context) {
         private const val KEY_USER_CAMPUS = "user_campus"
         private const val KEY_USER_UNIVERSITY = "user_university"
         private const val KEY_HAS_SEEN_ONBOARDING = "has_seen_onboarding"
+        private const val KEY_AVATAR_URL = "avatar_url"
     }
 
     var isLoggedIn: Boolean
@@ -45,6 +46,10 @@ class SessionManager(context: Context) {
         get() = prefs.getString(KEY_USER_UNIVERSITY, "TAR UMT") ?: "TAR UMT"
         set(value) = prefs.edit().putString(KEY_USER_UNIVERSITY, value).apply()
 
+    var avatarUrl: String
+        get() = prefs.getString(KEY_AVATAR_URL, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_AVATAR_URL, value).apply()
+
     fun saveSession(id: String, email: String, name: String, campus: String, university: String = "TAR UMT") {
         prefs.edit()
             .putBoolean(KEY_IS_LOGGED_IN, true)
@@ -65,6 +70,7 @@ class SessionManager(context: Context) {
             .remove(KEY_USER_NAME)
             .remove(KEY_USER_CAMPUS)
             .remove(KEY_USER_UNIVERSITY)
+            .remove(KEY_AVATAR_URL)
             .apply()
     }
 }

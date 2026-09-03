@@ -43,6 +43,7 @@ fun HomeScreen(
     userEmail: String = "",
     userCampus: String = "",
     userUniversity: String = "",
+    userAvatarUrl: String = "",
     onNavigateToNotifications: () -> Unit,
     onNavigateToMarketplace: () -> Unit,
     onNavigateToListing: (String) -> Unit,
@@ -56,12 +57,13 @@ fun HomeScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(userName, userEmail, userCampus, userUniversity) {
+    LaunchedEffect(userName, userEmail, userCampus, userUniversity, userAvatarUrl) {
         viewModel.syncAuthUser(
             name = userName,
             email = userEmail,
             campus = userCampus,
-            university = userUniversity
+            university = userUniversity,
+            avatarUrl = userAvatarUrl
         )
     }
 
@@ -73,7 +75,60 @@ fun HomeScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState) { data ->
+                val message = data.visuals.message
+                val icon = when {
+                    "saved" in message.lowercase() -> Icons.Default.Favorite
+                    "removed" in message.lowercase() -> Icons.Default.DeleteOutline
+                    "message" in message.lowercase() -> Icons.Default.Send
+                    else -> Icons.Default.CheckCircle
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
+                        .fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    shadowElevation = 6.dp,
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.White.copy(alpha = 0.2f),
+                            modifier = Modifier.size(30.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    icon,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = message,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f)
+                        )
+                        data.visuals.actionLabel?.let { action ->
+                            TextButton(onClick = { data.performAction() }) {
+                                Text(action, color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        },
         bottomBar = {
             SecondShelfBottomBar(
                 selectedTab = selectedTab,
@@ -791,8 +846,20 @@ private fun ProfileTab(
         ) {
             Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(72.dp)) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(user.avatarInitial, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    if (user.avatarUrl.isNotBlank()) {
+                        coil.compose.AsyncImage(
+                            model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                .data(user.avatarUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Profile photo",
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize().clip(CircleShape)
+                        )
+                    } else {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(user.avatarInitial, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
                     }
                 }
                 Spacer(Modifier.height(12.dp))
@@ -806,6 +873,14 @@ private fun ProfileTab(
                     color = MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.padding(top = 2.dp)
                 )
+                if (user.bio.isNotBlank()) {
+                    Text(
+                        user.bio,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
 
                 // User Rating Badge
                 val userReviews = viewModel.getReviewsForUser(user.id)

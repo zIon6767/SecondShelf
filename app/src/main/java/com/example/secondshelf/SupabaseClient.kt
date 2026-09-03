@@ -4,6 +4,7 @@ import android.content.Context
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.SupabaseClient as SbClient
 
 /**
@@ -30,9 +31,8 @@ fun initSupabase(context: Context) {
         install(Auth) {
             scheme = "secondshelf"
             host   = "auth-callback"
-            // autoLoadFromStorage = true (default) — loads saved JWT on every cold start
-            // alwaysAutoRefresh  = true (default) — silently refreshes expiring tokens
         }
         install(Postgrest)
+        install(Storage)
     }
 }

@@ -37,6 +37,7 @@ data class User(
     val university: String,
     val campus: String,
     val avatarInitial: String = if (name.isNotBlank()) name.first().uppercaseChar().toString() else "U",
+    val avatarUrl: String = "",
     val lastNameChangeTimestamp: Long = 0L,
     val rating: Double = 5.0,
     val reviewCount: Int = 0,

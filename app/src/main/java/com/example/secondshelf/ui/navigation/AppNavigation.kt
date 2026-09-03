@@ -164,6 +164,7 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                 userEmail = authViewModel.getUserEmail(),
                 userCampus = authViewModel.getUserCampus(),
                 userUniversity = authViewModel.getUserUniversity(),
+                userAvatarUrl = authViewModel.cachedAvatarUrl,
                 onNavigateToNotifications = { navController.navigate("notifications") },
                 onNavigateToMarketplace = { navController.navigate("marketplace") },
                 onNavigateToListing = { id -> navController.navigate("listing/$id") },
@@ -311,6 +312,7 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
         composable("edit_profile") {
             EditProfileScreen(
                 viewModel = marketplaceViewModel,
+                authViewModel = authViewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
