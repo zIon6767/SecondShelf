@@ -87,8 +87,21 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun hasSeenOnboarding(): Boolean = sessionManager.hasSeenOnboarding
     fun setSeenOnboarding() { sessionManager.hasSeenOnboarding = true }
 
-    /** Returns true if a valid session exists (persisted via SharedPreferences). */
-    fun isLoggedIn(): Boolean = sessionManager.isLoggedIn
+    /** Returns true only when Supabase has restored a valid authenticated session. */
+    fun isLoggedIn(): Boolean {
+        val user = supabase.auth.currentUserOrNull()
+        if (user != null) {
+            sessionManager.userId = user.id
+            sessionManager.isLoggedIn = true
+            return true
+        }
+
+        // Never allow stale local preferences to bypass Supabase authentication.
+        if (sessionManager.isLoggedIn || sessionManager.userId.isNotBlank()) {
+            sessionManager.clearSession()
+        }
+        return false
+    }
 
     /** Returns true if the user profile has their custom username and campus set. */
     fun isProfileComplete(): Boolean {
@@ -145,8 +158,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             sessionManager.userId = uid
             return uid
         }
-        if (sessionManager.userId.isNotBlank()) return sessionManager.userId
-        return "user-current"
+        // Database operations must never use a locally cached or placeholder ID
+        // without a matching authenticated Supabase user.
+        return ""
     }
 
     /** Returns the campus of the currently logged-in user. */
