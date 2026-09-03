@@ -9,7 +9,9 @@ import com.example.secondshelf.data.marketplace.CreateListingRecord
 import com.example.secondshelf.data.marketplace.ListingRecord
 import com.example.secondshelf.data.marketplace.SupabaseMarketplaceRepository
 import com.example.secondshelf.data.marketplace.UpdateListingRecord
+import com.example.secondshelf.supabase
 import com.example.secondshelf.ui.model.*
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -195,6 +197,9 @@ class MarketplaceViewModel(
     private fun isSupabaseUserId(id: String): Boolean =
         runCatching { UUID.fromString(id) }.isSuccess
 
+    private fun authenticatedUserId(): String? =
+        supabase.auth.currentUserOrNull()?.id?.takeIf(::isSupabaseUserId)
+
     private fun Throwable.userMessage(): String =
         message?.substringBefore("\n")?.take(160) ?: "Unknown Supabase error"
 
@@ -320,16 +325,20 @@ class MarketplaceViewModel(
             onComplete(validationError)
             return
         }
-        if (!isSupabaseUserId(currentUser.id)) {
+        val sellerId = authenticatedUserId()
+        if (sellerId == null) {
             onComplete("Please sign in again before posting a listing")
             return
+        }
+        if (currentUser.id != sellerId) {
+            currentUser = currentUser.copy(id = sellerId)
         }
 
         viewModelScope.launch {
             isListingSaving = true
             repository.createListing(
                 CreateListingRecord(
-                    sellerId = currentUser.id,
+                    sellerId = sellerId,
                     title = title.trim(),
                     description = description.trim(),
                     priceCents = price * 100,
