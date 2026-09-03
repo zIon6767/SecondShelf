@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.secondshelf.ui.navigation.AppNavigation
+import io.github.jan.supabase.auth.handleDeeplinks
 import com.example.secondshelf.ui.theme.SecondShelfTheme
 
 class MainActivity : ComponentActivity() {
@@ -56,7 +57,14 @@ class MainActivity : ComponentActivity() {
     private fun handleDeepLinkIntent(intent: Intent?) {
         val uri = intent?.data ?: return
         if (uri.scheme == "secondshelf" && uri.host == "auth-callback") {
-            authCallbackUri = uri
+            // Let supabase-kt exchange/import the OAuth callback and persist the
+            // resulting JWT session. Notify Compose only after this succeeds.
+            supabase.handleDeeplinks(
+                intent = intent,
+                onSessionSuccess = {
+                    authCallbackUri = uri
+                }
+            )
         }
     }
 }
