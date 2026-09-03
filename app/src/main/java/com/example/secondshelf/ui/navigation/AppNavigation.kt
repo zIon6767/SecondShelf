@@ -33,12 +33,18 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
         authCallbackUri?.let { authViewModel.handleAuthCallback(it) }
     }
 
-    // Navigate to Home after a successful Google (or any) OAuth callback
+    // Navigate to Home or Complete Profile after a successful Google (or any) OAuth callback
     LaunchedEffect(authUiState) {
         if (authUiState is AuthUiState.Success) {
             authViewModel.resetState()
-            navController.navigate("home") {
-                popUpTo(0) { inclusive = true }
+            if (authViewModel.isProfileComplete()) {
+                navController.navigate("home") {
+                    popUpTo(0) { inclusive = true }
+                }
+            } else {
+                navController.navigate("complete_profile") {
+                    popUpTo(0) { inclusive = true }
+                }
             }
         }
     }

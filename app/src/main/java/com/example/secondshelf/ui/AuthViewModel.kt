@@ -87,16 +87,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun hasSeenOnboarding(): Boolean = sessionManager.hasSeenOnboarding
     fun setSeenOnboarding() { sessionManager.hasSeenOnboarding = true }
 
-    /** Returns true if a valid Supabase or local session exists. */
-    fun isLoggedIn(): Boolean {
-        if (sessionManager.isLoggedIn) {
-            val email = getUserEmail().trim().lowercase()
-            return email.isBlank() || email.endsWith("@student.tarc.edu.my")
-        }
-        val session = supabase.auth.currentSessionOrNull() ?: return false
-        val email = getUserEmail().trim().lowercase()
-        return email.isBlank() || email.endsWith("@student.tarc.edu.my")
-    }
+    /** Returns true if a valid session exists (persisted via SharedPreferences). */
+    fun isLoggedIn(): Boolean = sessionManager.isLoggedIn
 
     /** Returns true if the user profile has their custom username and campus set. */
     fun isProfileComplete(): Boolean {
@@ -327,22 +319,33 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             runCatching {
                 supabase.auth.parseSessionFromUrl(uri.toString())
             }.onSuccess {
-                val email = getUserEmail().trim().lowercase()
-                val studentEmailRegex = "^[a-z0-9+_.-]+@student\\.tarc\\.edu\\.my$".toRegex()
-                if (!studentEmailRegex.matches(email)) {
-                    supabase.auth.signOut()
-                    sessionManager.clearSession()
-                    cachedFullName = ""
-                    cachedEmail = ""
-                    cachedCampus = ""
-                    setError("Invalid email address. Please sign in with a valid TAR UMT Google account (@student.tarc.edu.my).")
+                // After parseSessionFromUrl, the session is imported into the Supabase client.
+                // Read from currentUserOrNull() which is now reliably populated.
+                val user = supabase.auth.currentUserOrNull()
+                val email = user?.email?.trim()?.lowercase()
+                    ?: user?.userMetadata?.get("email")?.toString()?.trim('"')?.trim()?.lowercase()
+                    ?: getUserEmail().trim().lowercase()
+
+                val metaName = user?.userMetadata?.get("full_name")?.toString()?.trim('"')
+                    ?: user?.userMetadata?.get("name")?.toString()?.trim('"')
+
+                val name = if (!metaName.isNullOrBlank() && metaName != "null") {
+                    metaName
+                } else if (email.isNotBlank()) {
+                    email.substringBefore("@").replace(".", " ").replace("_", " ")
+                        .split(" ").filter { it.isNotBlank() }
+                        .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
                 } else {
-                    val name = getUserFullName()
-                    val campus = getUserCampus()
-                    val uid = getUserId()
-                    sessionManager.saveSession(uid, email, name, campus)
-                    _uiState.value = AuthUiState.Success
+                    "Student"
                 }
+
+                val uid = user?.id ?: getUserId()
+                val campus = getUserCampus()
+
+                cachedEmail = email
+                cachedFullName = name
+                sessionManager.saveSession(uid, email, name, campus)
+                _uiState.value = AuthUiState.Success
             }.onFailure { e ->
                 setError("Google sign-in failed: ${e.message}")
             }

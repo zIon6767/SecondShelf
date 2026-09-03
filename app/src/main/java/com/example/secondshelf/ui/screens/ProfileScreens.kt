@@ -8,10 +8,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,7 +31,11 @@ fun SavedItemsScreen(
     val saved = viewModel.getSavedListings()
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        TopBar(title = "Saved Items", onBack = onNavigateBack)
+        TopBar(
+            title = "Saved Items",
+            subtitle = if (saved.isEmpty()) "0 items" else "${saved.size} item${if (saved.size > 1) "s" else ""}",
+            onBack = onNavigateBack
+        )
 
         if (saved.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -181,24 +188,69 @@ private fun ProfileField(
 }
 
 @Composable
-fun TopBar(title: String, onBack: () -> Unit) {
-    Row(
+fun TopBar(
+    title: String,
+    subtitle: String? = null,
+    onBack: () -> Unit
+) {
+    val primary = MaterialTheme.colorScheme.primary
+    Column(
         modifier = Modifier
             .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 20.dp)
+            .padding(top = 12.dp, bottom = 16.dp)
     ) {
-        IconButton(
-            onClick = onBack,
-            modifier = Modifier
-                .size(40.dp)
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
-        ) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+        // Back button row
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(primary.copy(alpha = 0.10f)),
+                contentAlignment = Alignment.Center
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
         }
-        Spacer(Modifier.width(12.dp))
-        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+
+        Spacer(Modifier.height(12.dp))
+
+        // Title + subtitle row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
+        }
     }
-    HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f),
+        thickness = 1.dp
+    )
 }

@@ -36,7 +36,7 @@ import com.example.secondshelf.ui.AuthViewModel
 
 private fun isValidEmail(email: String): Boolean {
     val trimmed = email.trim().lowercase()
-    val emailRegex = Regex("^[A-Za-z0-9+_.-]+@student\\.tarc\\.edu\\.my$")
+    val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
     return emailRegex.matches(trimmed)
 }
 
