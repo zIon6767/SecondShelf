@@ -1,19 +1,24 @@
 package com.example.secondshelf.ui
 
+import android.app.Application
 import android.content.Context
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
-import androidx.lifecycle.ViewModel
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.secondshelf.BuildConfig
+import com.example.secondshelf.data.SessionManager
 import com.example.secondshelf.supabase
 import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.parseSessionFromUrl
+import io.github.jan.supabase.auth.providers.builtin.Email
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -30,10 +35,27 @@ sealed class AuthUiState {
 
 // ── ViewModel ─────────────────────────────────────────────────────────────────
 
-class AuthViewModel : ViewModel() {
+class AuthViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val sessionManager = SessionManager(application.applicationContext)
 
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
+
+    var cachedFullName by mutableStateOf("")
+        private set
+    var cachedCampus by mutableStateOf("")
+        private set
+    var cachedEmail by mutableStateOf("")
+        private set
+
+    init {
+        if (sessionManager.isLoggedIn) {
+            cachedFullName = sessionManager.userName
+            cachedEmail = sessionManager.userEmail
+            cachedCampus = sessionManager.userCampus
+        }
+    }
 
     private fun setError(message: String) {
         viewModelScope.launch {
@@ -45,51 +67,116 @@ class AuthViewModel : ViewModel() {
         }
     }
 
+    fun setCachedUserProfile(name: String, email: String, campus: String) {
+        if (name.isNotBlank()) {
+            cachedFullName = name
+            sessionManager.userName = name
+        }
+        if (email.isNotBlank()) {
+            cachedEmail = email
+            sessionManager.userEmail = email
+        }
+        if (campus.isNotBlank()) {
+            cachedCampus = campus
+            sessionManager.userCampus = campus
+        }
+    }
+
     // ── Session check ─────────────────────────────────────────────────────────
 
-    /** Returns true if a valid Supabase session already exists (persisted login). */
-    fun isLoggedIn(): Boolean = supabase.auth.currentSessionOrNull() != null
+    fun hasSeenOnboarding(): Boolean = sessionManager.hasSeenOnboarding
+    fun setSeenOnboarding() { sessionManager.hasSeenOnboarding = true }
+
+    /** Returns true if a valid Supabase or local session exists. */
+    fun isLoggedIn(): Boolean {
+        if (sessionManager.isLoggedIn) {
+            val email = getUserEmail().trim().lowercase()
+            return email.isBlank() || email.endsWith("@student.tarc.edu.my")
+        }
+        val session = supabase.auth.currentSessionOrNull() ?: return false
+        val email = getUserEmail().trim().lowercase()
+        return email.isBlank() || email.endsWith("@student.tarc.edu.my")
+    }
 
     /** Returns true if the user profile has their custom username and campus set. */
     fun isProfileComplete(): Boolean {
+        if (cachedFullName.isNotBlank() && cachedFullName != "Student" && cachedFullName != "User" && cachedCampus.isNotBlank()) {
+            return true
+        }
+        if (sessionManager.userName.isNotBlank() && sessionManager.userName != "Student" && sessionManager.userName != "User" && sessionManager.userCampus.isNotBlank()) {
+            cachedFullName = sessionManager.userName
+            cachedCampus = sessionManager.userCampus
+            return true
+        }
         val user = supabase.auth.currentUserOrNull() ?: return false
         val fullName = user.userMetadata?.get("full_name")?.toString()?.trim('"')
         val campus = user.userMetadata?.get("campus")?.toString()?.trim('"')
-        return !fullName.isNullOrBlank() && fullName != "null" && fullName != "User" && !campus.isNullOrBlank()
+        return !fullName.isNullOrBlank() && fullName != "null" && fullName != "User" && fullName != "Student" && !campus.isNullOrBlank()
     }
 
-    /** Returns the full name of the currently logged-in user from metadata or email. */
+    /** Returns the full name of the currently logged-in user from metadata, cache, or preferences. */
     fun getUserFullName(): String {
-        val user = supabase.auth.currentUserOrNull() ?: return ""
-        val fullName = user.userMetadata?.get("full_name")?.toString()?.trim('"')
-            ?: user.userMetadata?.get("name")?.toString()?.trim('"')
-            ?: user.userMetadata?.get("user_name")?.toString()?.trim('"')
-            ?: user.userMetadata?.get("preferred_username")?.toString()?.trim('"')
+        if (cachedFullName.isNotBlank() && cachedFullName != "Student" && cachedFullName != "User") {
+            return cachedFullName
+        }
+        if (sessionManager.userName.isNotBlank() && sessionManager.userName != "Student" && sessionManager.userName != "User") {
+            cachedFullName = sessionManager.userName
+            return cachedFullName
+        }
+        val user = supabase.auth.currentUserOrNull()
+        val fullName = user?.userMetadata?.get("full_name")?.toString()?.trim('"')
+            ?: user?.userMetadata?.get("name")?.toString()?.trim('"')
+            ?: user?.userMetadata?.get("user_name")?.toString()?.trim('"')
+            ?: user?.userMetadata?.get("preferred_username")?.toString()?.trim('"')
         if (!fullName.isNullOrBlank() && fullName != "null" && fullName != "User" && fullName != "Student") {
+            cachedFullName = fullName
+            sessionManager.userName = fullName
             return fullName
         }
         val email = getUserEmail()
         if (email.isNotBlank()) {
             val prefix = email.substringBefore("@").replace(".", " ").replace("_", " ")
-            return prefix.split(" ").filter { it.isNotBlank() }.joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+            val formatted = prefix.split(" ").filter { it.isNotBlank() }.joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+            if (formatted.isNotBlank()) {
+                cachedFullName = formatted
+                sessionManager.userName = formatted
+                return formatted
+            }
         }
         return ""
     }
 
     /** Returns the user ID of the currently logged-in user. */
     fun getUserId(): String {
-        return supabase.auth.currentUserOrNull()?.id ?: "user-current"
+        val uid = supabase.auth.currentUserOrNull()?.id
+        if (!uid.isNullOrBlank()) {
+            sessionManager.userId = uid
+            return uid
+        }
+        if (sessionManager.userId.isNotBlank()) return sessionManager.userId
+        return "user-current"
     }
 
     /** Returns the campus of the currently logged-in user. */
     fun getUserCampus(): String {
+        if (cachedCampus.isNotBlank()) return cachedCampus
+        if (sessionManager.userCampus.isNotBlank()) {
+            cachedCampus = sessionManager.userCampus
+            return cachedCampus
+        }
         val user = supabase.auth.currentUserOrNull() ?: return "KL Main Campus"
         val campus = user.userMetadata?.get("campus")?.toString()?.trim('"')
-        return if (campus.isNullOrBlank() || campus == "null") "KL Main Campus" else campus
+        if (!campus.isNullOrBlank() && campus != "null") {
+            cachedCampus = campus
+            sessionManager.userCampus = campus
+            return campus
+        }
+        return "KL Main Campus"
     }
 
     /** Returns the university of the currently logged-in user. */
     fun getUserUniversity(): String {
+        if (sessionManager.userUniversity.isNotBlank()) return sessionManager.userUniversity
         val user = supabase.auth.currentUserOrNull() ?: return "TAR UMT"
         val uni = user.userMetadata?.get("university")?.toString()?.trim('"')
         return if (uni.isNullOrBlank() || uni == "null") "TAR UMT" else uni
@@ -97,20 +184,29 @@ class AuthViewModel : ViewModel() {
 
     /** Returns the email of the currently logged-in user. */
     fun getUserEmail(): String {
+        if (cachedEmail.isNotBlank()) return cachedEmail
+        if (sessionManager.userEmail.isNotBlank()) {
+            cachedEmail = sessionManager.userEmail
+            return cachedEmail
+        }
         val user = supabase.auth.currentUserOrNull() ?: return ""
         val directEmail = user.email.orEmpty().trim().trim('"')
-        if (directEmail.isNotBlank() && directEmail != "null") return directEmail
+        if (directEmail.isNotBlank() && directEmail != "null") {
+            cachedEmail = directEmail
+            sessionManager.userEmail = directEmail
+            return directEmail
+        }
         val metaEmail = user.userMetadata?.get("email")?.toString()?.trim('"').orEmpty().trim()
-        if (metaEmail.isNotBlank() && metaEmail != "null") return metaEmail
+        if (metaEmail.isNotBlank() && metaEmail != "null") {
+            cachedEmail = metaEmail
+            sessionManager.userEmail = metaEmail
+            return metaEmail
+        }
         return ""
     }
 
     // ── Email / Password Auth ─────────────────────────────────────────────────
 
-    /**
-     * Sign in with email + password.
-     * Surfaces a clear "not registered" message when credentials are unrecognised.
-     */
     fun signIn(email: String, password: String) {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
@@ -120,6 +216,10 @@ class AuthViewModel : ViewModel() {
                     this.password = password
                 }
             }.onSuccess {
+                cachedEmail = email
+                val fullName = getUserFullName().ifBlank { email.substringBefore("@").replace(".", " ") }
+                val campus = getUserCampus()
+                sessionManager.saveSession(getUserId(), email, fullName, campus)
                 _uiState.value = AuthUiState.Success
             }.onFailure { e ->
                 setError(mapSignInError(e))
@@ -127,10 +227,6 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Register a new account with email + password + profile metadata.
-     * Called from SetPasswordScreen after the user completes the two-step register flow.
-     */
     fun signUp(email: String, password: String, fullName: String, phone: String) {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
@@ -144,10 +240,13 @@ class AuthViewModel : ViewModel() {
                     }
                 }
             }.onSuccess {
-                // If email confirmation is required, the session will be null
+                cachedEmail = email
+                cachedFullName = fullName
+                sessionManager.hasSeenOnboarding = true
                 if (supabase.auth.currentSessionOrNull() == null) {
                     _uiState.value = AuthUiState.EmailConfirmationRequired(email)
                 } else {
+                    sessionManager.saveSession(getUserId(), email, fullName, getUserCampus())
                     _uiState.value = AuthUiState.Success
                 }
             }.onFailure { e ->
@@ -158,16 +257,22 @@ class AuthViewModel : ViewModel() {
 
     // ── Sign Out ──────────────────────────────────────────────────────────────
 
-    /** Signs out the current user and resets state. */
     fun signOut() {
+        cachedFullName = ""
+        cachedEmail = ""
+        cachedCampus = ""
+        sessionManager.clearSession()
         viewModelScope.launch {
             runCatching { supabase.auth.signOut() }
             _uiState.value = AuthUiState.Idle
         }
     }
 
-    /** Deletes the user account / terminates session and redirects. */
     fun deleteAccount(onComplete: () -> Unit) {
+        cachedFullName = ""
+        cachedEmail = ""
+        cachedCampus = ""
+        sessionManager.clearSession()
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             runCatching {
@@ -178,8 +283,17 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    /** Updates custom user profile fields (username, campus) in Supabase user metadata. */
     fun updateUserProfile(fullName: String, campus: String, onComplete: () -> Unit) {
+        if (fullName.isNotBlank()) {
+            cachedFullName = fullName
+            sessionManager.userName = fullName
+        }
+        if (campus.isNotBlank()) {
+            cachedCampus = campus
+            sessionManager.userCampus = campus
+        }
+        sessionManager.saveSession(getUserId(), getUserEmail(), fullName, campus)
+
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             runCatching {
@@ -197,14 +311,6 @@ class AuthViewModel : ViewModel() {
 
     // ── Google OAuth (Custom Tabs) ────────────────────────────────────────────
 
-    /**
-     * Opens Supabase Google OAuth in a Chrome Custom Tab.
-     * The OS redirects back to `secondshelf://auth-callback` when done,
-     * which is handled in MainActivity → handleAuthCallback().
-     *
-     * Pre-requisite: Google provider must be enabled in the Supabase dashboard
-     * (Authentication → Providers → Google) with a valid Client ID + Secret.
-     */
     fun signInWithGoogle(context: Context) {
         val oauthUrl = "${BuildConfig.SUPABASE_URL}/auth/v1/authorize" +
             "?provider=google" +
@@ -215,17 +321,28 @@ class AuthViewModel : ViewModel() {
             .launchUrl(context, Uri.parse(oauthUrl))
     }
 
-    /**
-     * Called when the app receives the OAuth redirect deep-link
-     * (secondshelf://auth-callback). Exchanges the tokens for a session.
-     */
     fun handleAuthCallback(uri: Uri) {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             runCatching {
                 supabase.auth.parseSessionFromUrl(uri.toString())
             }.onSuccess {
-                _uiState.value = AuthUiState.Success
+                val email = getUserEmail().trim().lowercase()
+                val studentEmailRegex = "^[a-z0-9+_.-]+@student\\.tarc\\.edu\\.my$".toRegex()
+                if (!studentEmailRegex.matches(email)) {
+                    supabase.auth.signOut()
+                    sessionManager.clearSession()
+                    cachedFullName = ""
+                    cachedEmail = ""
+                    cachedCampus = ""
+                    setError("Invalid email address. Please sign in with a valid TAR UMT Google account (@student.tarc.edu.my).")
+                } else {
+                    val name = getUserFullName()
+                    val campus = getUserCampus()
+                    val uid = getUserId()
+                    sessionManager.saveSession(uid, email, name, campus)
+                    _uiState.value = AuthUiState.Success
+                }
             }.onFailure { e ->
                 setError("Google sign-in failed: ${e.message}")
             }
@@ -234,7 +351,6 @@ class AuthViewModel : ViewModel() {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /** Resets state back to Idle (call after navigating away on success). */
     fun resetState() { _uiState.value = AuthUiState.Idle }
 
     private fun mapSignInError(e: Throwable): String {

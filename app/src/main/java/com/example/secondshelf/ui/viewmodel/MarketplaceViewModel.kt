@@ -64,6 +64,36 @@ class MarketplaceViewModel : ViewModel() {
     var favorites by mutableStateOf(setOf<String>())
         private set
 
+    var reviews by mutableStateOf<List<Review>>(
+        listOf(
+            Review(
+                id = "rev-1",
+                authorId = "user-2",
+                authorName = "Sarah Lee",
+                authorAvatarInitial = "S",
+                targetUserId = "user-current",
+                listingTitle = "Calculus 9th Edition",
+                rating = 5,
+                comment = "Super fast response and punctual during meetup! Book condition was great.",
+                tags = listOf("Punctual", "Item as Described", "Friendly"),
+                timeAgo = "2 days ago"
+            ),
+            Review(
+                id = "rev-2",
+                authorId = "user-3",
+                authorName = "Marcus Wong",
+                authorAvatarInitial = "M",
+                targetUserId = "user-current",
+                listingTitle = "Scientific Calculator",
+                rating = 5,
+                comment = "Smooth transaction at library lobby. Highly recommended seller!",
+                tags = listOf("Fast Reply", "Friendly"),
+                timeAgo = "1 week ago"
+            )
+        )
+    )
+        private set
+
     var notifications by mutableStateOf(initialNotifications)
         private set
 
@@ -347,7 +377,13 @@ class MarketplaceViewModel : ViewModel() {
     fun updateProfile(name: String, email: String, university: String, campus: String): String? {
         val trimmedName = name.trim()
         if (trimmedName.isBlank()) return "Name is required"
-        if (email.isBlank()) return "Email is required"
+        val trimmedEmail = email.trim()
+        if (trimmedEmail.isBlank()) return "Email is required"
+
+        val studentEmailRegex = "^[A-Za-z0-9+_.-]+@student\\.tarc\\.edu\\.my$".toRegex(RegexOption.IGNORE_CASE)
+        if (!studentEmailRegex.matches(trimmedEmail)) {
+            return "Invalid email address"
+        }
 
         var newLastNameChange = currentUser.lastNameChangeTimestamp
         if (trimmedName != currentUser.name) {
@@ -360,7 +396,7 @@ class MarketplaceViewModel : ViewModel() {
 
         currentUser = currentUser.copy(
             name = trimmedName,
-            email = email.trim(),
+            email = trimmedEmail,
             university = university.trim(),
             campus = campus.trim(),
             avatarInitial = trimmedName.first().uppercaseChar().toString(),
@@ -368,6 +404,39 @@ class MarketplaceViewModel : ViewModel() {
         )
         showToast("Profile updated successfully")
         return null
+    }
+
+    fun getReviewsForUser(userId: String): List<Review> {
+        return reviews.filter { it.targetUserId == userId || it.targetUserId == "user-current" }
+    }
+
+    fun getAverageRatingForUser(userId: String): Double {
+        val userReviews = getReviewsForUser(userId)
+        if (userReviews.isEmpty()) return 5.0
+        return userReviews.map { it.rating }.average()
+    }
+
+    fun addReview(
+        targetUserId: String,
+        listingTitle: String,
+        rating: Int,
+        comment: String,
+        tags: List<String> = emptyList()
+    ) {
+        val newReview = Review(
+            id = "rev-${UUID.randomUUID().toString().take(8)}",
+            authorId = currentUser.id,
+            authorName = if (currentUser.name.isNotBlank()) currentUser.name else "Student",
+            authorAvatarInitial = currentUser.avatarInitial,
+            targetUserId = targetUserId,
+            listingTitle = listingTitle,
+            rating = rating.coerceIn(1, 5),
+            comment = comment.trim(),
+            tags = tags,
+            timeAgo = "Just now"
+        )
+        reviews = listOf(newReview) + reviews
+        showToast("Review submitted successfully! Thank you.")
     }
 
     fun clearAllUserData() {

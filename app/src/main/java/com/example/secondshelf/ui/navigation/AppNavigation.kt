@@ -11,9 +11,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
 import com.example.secondshelf.ui.AuthUiState
 import com.example.secondshelf.ui.AuthViewModel
 import com.example.secondshelf.ui.screens.*
+import com.example.secondshelf.ui.theme.SecondShelfTheme
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 
 @Composable
@@ -53,6 +58,10 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                                 popUpTo("splash") { inclusive = true }
                             }
                         }
+                    } else if (authViewModel.hasSeenOnboarding()) {
+                        navController.navigate("login") {
+                            popUpTo("splash") { inclusive = true }
+                        }
                     } else {
                         navController.navigate("onboarding") {
                             popUpTo("splash") { inclusive = true }
@@ -65,6 +74,7 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
         composable("onboarding") {
             OnboardingScreen(
                 onNavigateToLogin = {
+                    authViewModel.setSeenOnboarding()
                     navController.navigate("login") { popUpTo("onboarding") { inclusive = true } }
                 }
             )
@@ -93,6 +103,7 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                     )
                 },
                 onNavigateToLogin = { navController.popBackStack() },
+                onNavigateToTerms = { navController.navigate("terms_and_conditions") },
                 onNavigateToHome = {
                     if (authViewModel.isProfileComplete()) {
                         navController.navigate("home") { popUpTo(0) { inclusive = true } }
@@ -100,6 +111,12 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                         navController.navigate("complete_profile") { popUpTo(0) { inclusive = true } }
                     }
                 }
+            )
+        }
+
+        composable("terms_and_conditions") {
+            TermsAndConditionsScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
@@ -129,7 +146,8 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                 onNavigateToHome = {
                     navController.navigate("home") { popUpTo(0) { inclusive = true } }
                 },
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToTerms = { navController.navigate("terms_and_conditions") }
             )
         }
 
@@ -213,6 +231,12 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                 viewModel = marketplaceViewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToEditProfile = { navController.navigate("edit_profile") },
+                onNavigateToMyListings = { navController.navigate("create_listing") },
+                onNavigateToSaved = { navController.navigate("saved") },
+                onNavigateToChatSettings = { navController.navigate("chat_settings") },
+                onNavigateToTerms = { navController.navigate("terms_and_conditions") },
+                onNavigateToCampusSafety = { navController.navigate("campus_safety") },
+                onNavigateToAbout = { navController.navigate("about") },
                 onLogout = {
                     authViewModel.signOut()
                     navController.navigate("login") { popUpTo(0) { inclusive = true } }
@@ -223,6 +247,25 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                         navController.navigate("login") { popUpTo(0) { inclusive = true } }
                     }
                 }
+            )
+        }
+
+        composable("chat_settings") {
+            ChatSettingsScreen(
+                viewModel = marketplaceViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("campus_safety") {
+            CampusSafetyScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("about") {
+            AboutScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

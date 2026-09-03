@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.secondshelf.ui.model.getSellerName
 import com.example.secondshelf.ui.model.getUserById
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
@@ -107,12 +108,31 @@ fun ConversationScreen(
         viewModel.markConversationRead(participantId, listingId)
     }
 
+    var showRatingDialog by remember { mutableStateOf(false) }
+
+    if (showRatingDialog) {
+        com.example.secondshelf.ui.components.RatingReviewDialog(
+            targetUserName = getSellerName(participantId),
+            listingTitle = listing?.title ?: "Campus Item",
+            onDismiss = { showRatingDialog = false },
+            onSubmit = { rating, comment, tags ->
+                viewModel.addReview(
+                    targetUserId = participantId,
+                    listingTitle = listing?.title ?: "Campus Item",
+                    rating = rating,
+                    comment = comment,
+                    tags = tags
+                )
+            }
+        )
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
@@ -124,9 +144,20 @@ fun ConversationScreen(
                 Icon(Icons.Default.ArrowBack, contentDescription = "Back")
             }
             Spacer(Modifier.width(12.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(getSellerName(participantId), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(listing?.title ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+            }
+            Button(
+                onClick = { showRatingDialog = true },
+                shape = RoundedCornerShape(20.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    contentColor = MaterialTheme.colorScheme.primary
+                ),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text("★ Rate Deal", fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
 
