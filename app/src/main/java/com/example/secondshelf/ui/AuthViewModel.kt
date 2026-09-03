@@ -13,7 +13,6 @@ import com.example.secondshelf.BuildConfig
 import com.example.secondshelf.data.SessionManager
 import com.example.secondshelf.supabase
 import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.parseSessionFromUrl
 import io.github.jan.supabase.auth.providers.builtin.Email
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -331,17 +330,20 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             runCatching {
-                supabase.auth.parseSessionFromUrl(uri.toString())
-            }.onSuccess {
-                // After parseSessionFromUrl, the session is imported into the Supabase client.
-                // Read from currentUserOrNull() which is now reliably populated.
-                val user = supabase.auth.currentUserOrNull()
-                val email = user?.email?.trim()?.lowercase()
-                    ?: user?.userMetadata?.get("email")?.toString()?.trim('"')?.trim()?.lowercase()
+                require(uri.scheme == "secondshelf" && uri.host == "auth-callback") {
+                    "Invalid authentication callback"
+                }
+                supabase.auth.awaitInitialization()
+                checkNotNull(supabase.auth.currentUserOrNull()) {
+                    "Google authentication did not create a Supabase session"
+                }
+            }.onSuccess { user ->
+                val email = user.email?.trim()?.lowercase()
+                    ?: user.userMetadata?.get("email")?.toString()?.trim('"')?.trim()?.lowercase()
                     ?: getUserEmail().trim().lowercase()
 
-                val metaName = user?.userMetadata?.get("full_name")?.toString()?.trim('"')
-                    ?: user?.userMetadata?.get("name")?.toString()?.trim('"')
+                val metaName = user.userMetadata?.get("full_name")?.toString()?.trim('"')
+                    ?: user.userMetadata?.get("name")?.toString()?.trim('"')
 
                 val name = if (!metaName.isNullOrBlank() && metaName != "null") {
                     metaName
@@ -353,7 +355,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     "Student"
                 }
 
-                val uid = user?.id ?: getUserId()
+                val uid = user.id
                 val campus = getUserCampus()
 
                 cachedEmail = email
