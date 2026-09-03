@@ -12,6 +12,7 @@ import com.example.secondshelf.data.marketplace.UpdateListingRecord
 import com.example.secondshelf.supabase
 import com.example.secondshelf.ui.model.*
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.awaitInitialization
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -325,17 +326,22 @@ class MarketplaceViewModel(
             onComplete(validationError)
             return
         }
-        val sellerId = authenticatedUserId()
-        if (sellerId == null) {
-            onComplete("Please sign in again before posting a listing")
-            return
-        }
-        if (currentUser.id != sellerId) {
-            currentUser = currentUser.copy(id = sellerId)
-        }
-
         viewModelScope.launch {
             isListingSaving = true
+
+            // Session restoration is asynchronous in supabase-kt. Wait until Auth has
+            // finished loading the stored Google session before checking the user.
+            supabase.auth.awaitInitialization()
+            val sellerId = authenticatedUserId()
+            if (sellerId == null) {
+                isListingSaving = false
+                onComplete("Your session has expired. Please sign in again.")
+                return@launch
+            }
+            if (currentUser.id != sellerId) {
+                currentUser = currentUser.copy(id = sellerId)
+            }
+
             repository.createListing(
                 CreateListingRecord(
                     sellerId = sellerId,
