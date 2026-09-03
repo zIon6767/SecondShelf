@@ -12,7 +12,6 @@ import com.example.secondshelf.data.marketplace.UpdateListingRecord
 import com.example.secondshelf.supabase
 import com.example.secondshelf.ui.model.*
 import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.awaitInitialization
 import kotlinx.coroutines.launch
 import java.util.UUID
 
