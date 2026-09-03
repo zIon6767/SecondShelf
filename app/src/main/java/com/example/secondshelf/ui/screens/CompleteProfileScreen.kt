@@ -257,6 +257,7 @@ fun CompleteProfileScreen(
                         campus = selectedCampus
                     ) {
                         marketplaceViewModel.syncAuthUser(
+                            id = authViewModel.getUserId(),
                             name = fullName.trim(),
                             email = email,
                             campus = selectedCampus
