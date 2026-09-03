@@ -11,18 +11,22 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
 import com.example.secondshelf.ui.AuthUiState
 import com.example.secondshelf.ui.AuthViewModel
 import com.example.secondshelf.ui.screens.*
+import com.example.secondshelf.ui.theme.SecondShelfTheme
+import com.example.secondshelf.ui.viewmodel.ChatViewModel
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 
 @Composable
-fun AppNavigation(
-    marketplaceViewModel: MarketplaceViewModel = viewModel(),
-    authCallbackUri: Uri? = null
-) {
+fun AppNavigation(authCallbackUri: Uri? = null) {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
+    val marketplaceViewModel: MarketplaceViewModel = viewModel()
     val authUiState by authViewModel.uiState.collectAsState()
 
     // Trigger OAuth token exchange when the deep-link arrives
@@ -30,12 +34,18 @@ fun AppNavigation(
         authCallbackUri?.let { authViewModel.handleAuthCallback(it) }
     }
 
-    // Navigate to Home after a successful Google (or any) OAuth callback
+    // Navigate to Home or Complete Profile after a successful Google (or any) OAuth callback
     LaunchedEffect(authUiState) {
         if (authUiState is AuthUiState.Success) {
             authViewModel.resetState()
-            navController.navigate("home") {
-                popUpTo(0) { inclusive = true }
+            if (authViewModel.isProfileComplete()) {
+                navController.navigate("home") {
+                    popUpTo(0) { inclusive = true }
+                }
+            } else {
+                navController.navigate("complete_profile") {
+                    popUpTo(0) { inclusive = true }
+                }
             }
         }
     }
@@ -55,6 +65,10 @@ fun AppNavigation(
                                 popUpTo("splash") { inclusive = true }
                             }
                         }
+                    } else if (authViewModel.hasSeenOnboarding()) {
+                        navController.navigate("login") {
+                            popUpTo("splash") { inclusive = true }
+                        }
                     } else {
                         navController.navigate("onboarding") {
                             popUpTo("splash") { inclusive = true }
@@ -67,6 +81,7 @@ fun AppNavigation(
         composable("onboarding") {
             OnboardingScreen(
                 onNavigateToLogin = {
+                    authViewModel.setSeenOnboarding()
                     navController.navigate("login") { popUpTo("onboarding") { inclusive = true } }
                 }
             )
@@ -95,6 +110,7 @@ fun AppNavigation(
                     )
                 },
                 onNavigateToLogin = { navController.popBackStack() },
+                onNavigateToTerms = { navController.navigate("terms_and_conditions") },
                 onNavigateToHome = {
                     if (authViewModel.isProfileComplete()) {
                         navController.navigate("home") { popUpTo(0) { inclusive = true } }
@@ -102,6 +118,12 @@ fun AppNavigation(
                         navController.navigate("complete_profile") { popUpTo(0) { inclusive = true } }
                     }
                 }
+            )
+        }
+
+        composable("terms_and_conditions") {
+            TermsAndConditionsScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
@@ -131,17 +153,20 @@ fun AppNavigation(
                 onNavigateToHome = {
                     navController.navigate("home") { popUpTo(0) { inclusive = true } }
                 },
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToTerms = { navController.navigate("terms_and_conditions") }
             )
         }
 
         composable("home") {
             HomeScreen(
                 viewModel = marketplaceViewModel,
+                userId = authViewModel.getUserId(),
                 userName = authViewModel.getUserFullName(),
                 userEmail = authViewModel.getUserEmail(),
                 userCampus = authViewModel.getUserCampus(),
                 userUniversity = authViewModel.getUserUniversity(),
+                userAvatarUrl = authViewModel.cachedAvatarUrl,
                 onNavigateToNotifications = { navController.navigate("notifications") },
                 onNavigateToMarketplace = { navController.navigate("marketplace") },
                 onNavigateToListing = { id -> navController.navigate("listing/$id") },
@@ -215,8 +240,12 @@ fun AppNavigation(
                 viewModel = marketplaceViewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToEditProfile = { navController.navigate("edit_profile") },
-                onNavigateToPrivacySecurity = { navController.navigate("privacy_security") },
-                onNavigateToHelpSupport = { navController.navigate("help_support") },
+                onNavigateToMyListings = { navController.navigate("create_listing") },
+                onNavigateToSaved = { navController.navigate("saved") },
+                onNavigateToChatSettings = { navController.navigate("chat_settings") },
+                onNavigateToTerms = { navController.navigate("terms_and_conditions") },
+                onNavigateToCampusSafety = { navController.navigate("campus_safety") },
+                onNavigateToAbout = { navController.navigate("about") },
                 onLogout = {
                     authViewModel.signOut()
                     navController.navigate("login") { popUpTo(0) { inclusive = true } }
@@ -230,22 +259,21 @@ fun AppNavigation(
             )
         }
 
-        composable("privacy_security") {
-            PrivacySecurityScreen(
+        composable("chat_settings") {
+            ChatSettingsScreen(
                 viewModel = marketplaceViewModel,
-                onNavigateBack = { navController.popBackStack() },
-                onDeleteAccount = {
-                    marketplaceViewModel.clearAllUserData()
-                    authViewModel.deleteAccount {
-                        navController.navigate("login") { popUpTo(0) { inclusive = true } }
-                    }
-                }
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
-        composable("help_support") {
-            HelpSupportScreen(
-                viewModel = marketplaceViewModel,
+        composable("campus_safety") {
+            CampusSafetyScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("about") {
+            AboutScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -275,10 +303,13 @@ fun AppNavigation(
                 navArgument("listingId") { type = NavType.StringType }
             )
         ) { backStackEntry ->
+            val chatViewModel: ChatViewModel = viewModel()
             ConversationScreen(
                 participantId = backStackEntry.arguments?.getString("participantId") ?: return@composable,
                 listingId = backStackEntry.arguments?.getString("listingId") ?: return@composable,
                 viewModel = marketplaceViewModel,
+                chatViewModel = chatViewModel,
+                currentUserId = authViewModel.getUserId(),
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -286,6 +317,7 @@ fun AppNavigation(
         composable("edit_profile") {
             EditProfileScreen(
                 viewModel = marketplaceViewModel,
+                authViewModel = authViewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

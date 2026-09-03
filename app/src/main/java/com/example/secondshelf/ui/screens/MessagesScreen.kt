@@ -5,20 +5,28 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.example.secondshelf.ui.model.getSellerName
 import com.example.secondshelf.ui.model.getUserById
+import com.example.secondshelf.ui.viewmodel.ChatViewModel
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 
 @Composable
@@ -28,35 +36,65 @@ fun MessagesScreen(
     onConversationClick: (participantId: String, listingId: String) -> Unit
 ) {
     val conversations = viewModel.conversations
+    val primary = MaterialTheme.colorScheme.primary
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Row(
+
+        // ── Premium header ────────────────────────────────────────────────────
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 20.dp)
+                .padding(top = 12.dp, bottom = 16.dp)
         ) {
-            IconButton(
-                onClick = onNavigateBack,
+            Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(primary.copy(alpha = 0.10f)),
+                contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                IconButton(onClick = onNavigateBack, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
-            Spacer(Modifier.width(12.dp))
-            Text("Notice", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Messages",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                if (conversations.isNotEmpty()) {
+                    Text(
+                        "${conversations.size} chat${if (conversations.size > 1) "s" else ""}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+            }
         }
-
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), thickness = 0.5.dp)
+        HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f), thickness = 1.dp)
 
         if (conversations.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f), modifier = Modifier.size(64.dp))
+                    Icon(Icons.Default.Chat, contentDescription = null, tint = Color(0xFFD1D5DB), modifier = Modifier.size(64.dp))
                     Spacer(Modifier.height(12.dp))
-                    Text("No notices yet", color = MaterialTheme.colorScheme.secondary)
+                    Text("No messages yet", color = MaterialTheme.colorScheme.secondary)
                 }
             }
         } else {
@@ -95,85 +133,264 @@ fun MessagesScreen(
 @Composable
 fun ConversationScreen(
     viewModel: MarketplaceViewModel,
+    chatViewModel: ChatViewModel,
     participantId: String,
     listingId: String,
+    currentUserId: String,
     onNavigateBack: () -> Unit
 ) {
+    val uiState by chatViewModel.uiState.collectAsState()
     var messageText by remember { mutableStateOf("") }
-    val messages = viewModel.getConversationMessages(participantId, listingId)
     val listing = viewModel.getListing(listingId)
+    val listState = rememberLazyListState()
 
+    // ── Initialise chat on first composition ──────────────────────────────────
     LaunchedEffect(participantId, listingId) {
-        viewModel.markConversationRead(participantId, listingId)
+        viewModel.markConversationRead(participantId, listingId) // keep conversation list in sync
+        chatViewModel.enterChat(
+            myUserId = currentUserId,
+            participantId = participantId,
+            listingId = listingId,
+            participantName = getSellerName(participantId)
+        )
+    }
+
+    // ── Scroll to bottom when messages update ─────────────────────────────────
+    LaunchedEffect(uiState.messages.size) {
+        if (uiState.messages.isNotEmpty()) {
+            listState.animateScrollToItem(uiState.messages.size - 1)
+        }
+    }
+
+    // ── Mark read on every resume (foreground return) ─────────────────────────
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        chatViewModel.onResume()
+    }
+
+    var showRatingDialog by remember { mutableStateOf(false) }
+
+    if (showRatingDialog) {
+        com.example.secondshelf.ui.components.RatingReviewDialog(
+            targetUserName = getSellerName(participantId),
+            listingTitle = listing?.title ?: "Campus Item",
+            onDismiss = { showRatingDialog = false },
+            onSubmit = { rating, comment, tags ->
+                viewModel.addReview(
+                    targetUserId = participantId,
+                    listingTitle = listing?.title ?: "Campus Item",
+                    rating = rating,
+                    comment = comment,
+                    tags = tags
+                )
+            }
+        )
     }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Row(
+
+        // ── Premium conversation header ─────────────────────────────────────
+        val primary = MaterialTheme.colorScheme.primary
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 20.dp)
+                .padding(top = 12.dp, bottom = 14.dp)
         ) {
-            IconButton(
-                onClick = onNavigateBack,
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+            // Back + Rate Deal row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(primary.copy(alpha = 0.10f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    IconButton(onClick = onNavigateBack, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Button(
+                    onClick = { showRatingDialog = true },
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = primary.copy(alpha = 0.12f),
+                        contentColor = primary
+                    ),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Text("★ Rate Deal", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
             }
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text(getSellerName(participantId), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(listing?.title ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+            Spacer(Modifier.height(12.dp))
+
+            // Participant name + online presence dot
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = uiState.participantName.ifBlank { getSellerName(participantId) },
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(Modifier.width(8.dp))
+                // ── Online / Offline presence indicator ────────────────────
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (uiState.isParticipantOnline) Color(0xFF22C55E) // green-500
+                            else Color(0xFF9CA3AF)                              // gray-400
+                        )
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = if (uiState.isParticipantOnline) "Online" else "Offline",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (uiState.isParticipantOnline) Color(0xFF16A34A) else MaterialTheme.colorScheme.secondary
+                )
+            }
+
+            if (!listing?.title.isNullOrBlank()) {
+                Text(
+                    listing!!.title,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
             }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f), thickness = 1.dp)
 
-        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
-
-        LazyColumn(
-            modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
-        ) {
-            items(messages) { msg ->
-                val isMe = msg.senderId == viewModel.currentUser.id
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(
-                            topStart = 16.dp, topEnd = 16.dp,
-                            bottomStart = if (isMe) 16.dp else 4.dp,
-                            bottomEnd = if (isMe) 4.dp else 16.dp
-                        ),
-                        color = if (isMe) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                        modifier = Modifier.widthIn(max = 280.dp)
+        // ── Message list ──────────────────────────────────────────────────────
+        if (uiState.messages.isEmpty()) {
+            Box(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.Chat,
+                        contentDescription = null,
+                        tint = Color(0xFFD1D5DB),
+                        modifier = Modifier.size(56.dp)
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "Say hello! Be the first to send a message.",
+                        color = MaterialTheme.colorScheme.secondary,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(vertical = 16.dp)
+            ) {
+                items(uiState.messages, key = { it.id }) { msg ->
+                    val isMe = msg.senderId == currentUserId
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = if (isMe) Alignment.End else Alignment.Start
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                msg.text,
-                                color = if (isMe) Color.White else MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                msg.timestamp,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (isMe) Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(
+                                    topStart = 16.dp, topEnd = 16.dp,
+                                    bottomStart = if (isMe) 16.dp else 4.dp,
+                                    bottomEnd = if (isMe) 4.dp else 16.dp
+                                ),
+                                color = if (isMe) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.surface,
+                                modifier = Modifier.widthIn(max = 280.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(
+                                        msg.content,
+                                        color = if (isMe) Color.White
+                                                else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    // Timestamp
+                                    val timeDisplay = remember(msg.createdAt) {
+                                        runCatching {
+                                            val raw = msg.createdAt.take(16).replace("T", " ")
+                                            raw.substringAfter(" ") // HH:mm
+                                        }.getOrDefault(msg.createdAt.take(5))
+                                    }
+                                    Text(
+                                        timeDisplay,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (isMe) Color.White.copy(alpha = 0.7f)
+                                                else MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+                        // ── "Read" receipt badge (only for our own messages) ──
+                        if (isMe && msg.isRead) {
+                            Spacer(Modifier.height(2.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.End,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DoneAll,
+                                    contentDescription = "Read",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(Modifier.width(2.dp))
+                                Text(
+                                    "Read",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
                 }
             }
         }
 
-        Surface(shadowElevation = 4.dp) {
+        // ── Error snackbar area ───────────────────────────────────────────────
+        uiState.error?.let { errMsg ->
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    errMsg,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+        }
+
+        // ── Input bar ─────────────────────────────────────────────────────────
+        Surface(color = MaterialTheme.colorScheme.background, shadowElevation = 2.dp) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp),
+                    .padding(12.dp)
+                    .navigationBarsPadding(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
@@ -187,14 +404,23 @@ fun ConversationScreen(
                 Spacer(Modifier.width(8.dp))
                 FilledIconButton(
                     onClick = {
-                        viewModel.sendMessage(listingId, participantId, messageText)
+                        chatViewModel.sendMessage(messageText)
                         messageText = ""
                     },
-                    enabled = messageText.isNotBlank()
+                    enabled = messageText.isNotBlank() && !uiState.isSending
                 ) {
-                    Icon(Icons.Default.Send, contentDescription = "Send")
+                    if (uiState.isSending) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(Icons.Default.Send, contentDescription = "Send")
+                    }
                 }
             }
         }
     }
 }
+

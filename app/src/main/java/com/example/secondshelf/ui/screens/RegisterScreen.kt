@@ -22,8 +22,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.secondshelf.R
@@ -31,8 +35,9 @@ import com.example.secondshelf.ui.AuthUiState
 import com.example.secondshelf.ui.AuthViewModel
 
 private fun isValidEmail(email: String): Boolean {
+    val trimmed = email.trim().lowercase()
     val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
-    return emailRegex.matches(email.trim())
+    return emailRegex.matches(trimmed)
 }
 
 @Composable
@@ -40,7 +45,8 @@ fun RegisterScreen(
     viewModel: AuthViewModel,
     onNavigateToSetPassword: (name: String, email: String, phone: String) -> Unit,
     onNavigateToLogin: () -> Unit,
-    onNavigateToHome: () -> Unit
+    onNavigateToHome: () -> Unit,
+    onNavigateToTerms: () -> Unit = {}
 ) {
     var fullName   by remember { mutableStateOf("") }
     var email      by remember { mutableStateOf("") }
@@ -48,6 +54,8 @@ fun RegisterScreen(
     var nameError  by remember { mutableStateOf("") }
     var emailError by remember { mutableStateOf("") }
     var phoneError by remember { mutableStateOf("") }
+    var agreeToTerms by remember { mutableStateOf(false) }
+    var termsError by remember { mutableStateOf("") }
 
     val uiState   by viewModel.uiState.collectAsState()
     val isLoading = uiState is AuthUiState.Loading
@@ -137,7 +145,10 @@ fun RegisterScreen(
                 modifier = Modifier.padding(bottom = 6.dp))
             OutlinedTextField(
                 value = fullName,
-                onValueChange = { fullName = it; nameError = "" },
+                onValueChange = { input ->
+                    fullName = input.filter { it.isLetter() || it.isWhitespace() }
+                    nameError = ""
+                },
                 placeholder = { Text("Enter your full name") },
                 leadingIcon = {
                     Icon(Icons.Default.Person, contentDescription = null,
@@ -168,7 +179,7 @@ fun RegisterScreen(
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it; emailError = "" },
-                placeholder = { Text("Enter your email address") },
+                placeholder = { Text("e.g. name@student.tarc.edu.my") },
                 leadingIcon = {
                     Icon(Icons.Default.Email, contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary)
@@ -228,20 +239,71 @@ fun RegisterScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        //Terms & Conditions Checkbox
+        val primaryColor = MaterialTheme.colorScheme.primary
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Checkbox(
+                checked = agreeToTerms,
+                onCheckedChange = {
+                    agreeToTerms = it
+                    termsError = ""
+                },
+                enabled = !isLoading,
+                colors = CheckboxDefaults.colors(checkedColor = primaryColor)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = buildAnnotatedString {
+                    append("I agree to the ")
+                    withStyle(
+                        SpanStyle(
+                            color = primaryColor,
+                            fontWeight = FontWeight.SemiBold,
+                            textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                        )
+                    ) {
+                        append("Terms & Conditions")
+                    }
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.clickable { onNavigateToTerms() }
+            )
+        }
+        if (termsError.isNotEmpty()) {
+            Text(
+                text = termsError,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .align(Alignment.Start)
+                    .padding(start = 12.dp, top = 2.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
 
         //Continue button
         Button(
             onClick = {
                 var valid = true
-                if (fullName.isBlank()) {
+                if (fullName.trim().isBlank()) {
                     nameError = "Please enter your full name"; valid = false
                 }
                 if (!isValidEmail(email)) {
-                    emailError = "Please enter a valid email address"; valid = false
+                    emailError = "Invalid email address"; valid = false
                 }
                 if (phone.isNotBlank() && (phone.length < 10 || !phone.startsWith("01"))) {
-                    phoneError = "Invalid phone number (must start with 01 and be 10-11 digits)"
+                    phoneError = "Invalid phone number"
+                    valid = false
+                }
+                if (!agreeToTerms) {
+                    termsError = "Please agree to the Terms & Conditions to continue"
                     valid = false
                 }
                 if (valid) onNavigateToSetPassword(fullName.trim(), email.trim(), phone.trim())

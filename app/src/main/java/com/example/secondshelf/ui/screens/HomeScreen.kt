@@ -10,9 +10,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -20,6 +21,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -31,14 +34,17 @@ import androidx.compose.ui.unit.sp
 import com.example.secondshelf.ui.components.*
 import com.example.secondshelf.ui.model.*
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
+import java.util.Calendar
 
 @Composable
 fun HomeScreen(
     viewModel: MarketplaceViewModel,
+    userId: String = "",
     userName: String = "User",
     userEmail: String = "",
     userCampus: String = "",
     userUniversity: String = "",
+    userAvatarUrl: String = "",
     onNavigateToNotifications: () -> Unit,
     onNavigateToMarketplace: () -> Unit,
     onNavigateToListing: (String) -> Unit,
@@ -52,12 +58,14 @@ fun HomeScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(userName, userEmail, userCampus, userUniversity) {
+    LaunchedEffect(userId, userName, userEmail, userCampus, userUniversity, userAvatarUrl) {
         viewModel.syncAuthUser(
+            id = userId,
             name = userName,
             email = userEmail,
             campus = userCampus,
-            university = userUniversity
+            university = userUniversity,
+            avatarUrl = userAvatarUrl
         )
     }
 
@@ -69,7 +77,60 @@ fun HomeScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState) { data ->
+                val message = data.visuals.message
+                val icon = when {
+                    "saved" in message.lowercase() -> Icons.Default.Favorite
+                    "removed" in message.lowercase() -> Icons.Default.DeleteOutline
+                    "message" in message.lowercase() -> Icons.Default.Send
+                    else -> Icons.Default.CheckCircle
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
+                        .fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    shadowElevation = 6.dp,
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.White.copy(alpha = 0.2f),
+                            modifier = Modifier.size(30.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    icon,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = message,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f)
+                        )
+                        data.visuals.actionLabel?.let { action ->
+                            TextButton(onClick = { data.performAction() }) {
+                                Text(action, color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        },
         bottomBar = {
             SecondShelfBottomBar(
                 selectedTab = selectedTab,
@@ -85,20 +146,20 @@ fun HomeScreen(
                     userName = userName,
                     onNavigateToNotifications = onNavigateToNotifications,
                     onNavigateToListing = onNavigateToListing,
-                    onNavigateToCreateListing = onNavigateToCreateListing
+                    onNavigateToCreateListing = onNavigateToCreateListing,
+                    onNavigateToProfile = { selectedTab = 3 }
                 )
                 1 -> SavedTab(viewModel, onNavigateToListing, onNavigateToCreateListing)
                 2 -> ChatTab(viewModel, onNavigateToMessages)
                 3 -> ProfileTab(
-                    viewModel = viewModel,
-                    onNavigateToSettings = onNavigateToSettings,
-                    onNavigateToCreateListing = onNavigateToCreateListing,
-                    onNavigateToListing = onNavigateToListing,
-                    onNavigateToSaved = onNavigateToSaved,
-                    onNavigateToMessages = onNavigateToMessages,
-                    onNavigateToNotifications = onNavigateToNotifications,
-                    onNavigateToEditProfile = onNavigateToEditProfile,
-                    onLogout = onLogout
+                    viewModel,
+                    onNavigateToSettings,
+                    onNavigateToCreateListing,
+                    onNavigateToListing,
+                    onNavigateToSaved,
+                    onNavigateToMessages,
+                    onNavigateToEditProfile,
+                    onLogout
                 )
             }
         }
@@ -112,13 +173,13 @@ private fun SecondShelfBottomBar(
     onAddListingClick: () -> Unit
 ) {
     val activeColor = MaterialTheme.colorScheme.primary
-    val inactiveColor = MaterialTheme.colorScheme.secondary
+    val inactiveColor = Color(0xFF8E8E93)
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
+        color = Color.White,
         shadowElevation = 8.dp,
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+        border = BorderStroke(0.5.dp, Color(0xFFE5E7EB))
     ) {
         Row(
             modifier = Modifier
@@ -237,41 +298,55 @@ private fun SecondShelfNavItem(
     }
 }
 
+private fun greeting(): String {
+    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+    return when {
+        hour < 12 -> "Good morning"
+        hour < 17 -> "Good afternoon"
+        else -> "Good evening"
+    }
+}
+
 @Composable
 private fun CleanTopBar(
     displayName: String,
     unreadCount: Int,
-    onNavigateToNotifications: () -> Unit
+    onNavigateToNotifications: () -> Unit,
+    onNavigateToProfile: () -> Unit
 ) {
     val shortName = displayName.split(" ").firstOrNull() ?: displayName
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+        color = Color.White,
+        border = BorderStroke(0.5.dp, Color(0xFFE5E7EB))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 20.dp, vertical = 6.dp),
+                .padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onNavigateToProfile)
+                    .padding(vertical = 4.dp, horizontal = 4.dp)
             ) {
                 Surface(
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             text = shortName.firstOrNull()?.uppercaseChar()?.toString() ?: "S",
                             color = Color.White,
-                            fontSize = 16.sp,
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -279,7 +354,7 @@ private fun CleanTopBar(
 
                 Column {
                     Text(
-                        text = shortName,
+                        text = "${greeting()}, $shortName",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
@@ -295,7 +370,7 @@ private fun CleanTopBar(
                         )
                         Text(
                             text = "TAR UMT Marketplace",
-                            fontSize = 11.sp,
+                            fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.secondary,
                             fontWeight = FontWeight.Medium
                         )
@@ -307,14 +382,14 @@ private fun CleanTopBar(
                 IconButton(
                     onClick = onNavigateToNotifications,
                     modifier = Modifier
-                        .size(36.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(10.dp))
+                        .size(40.dp)
+                        .background(Color(0xFFF4F7FB), RoundedCornerShape(12.dp))
                 ) {
                     Icon(
                         Icons.Outlined.Notifications,
                         contentDescription = "Notifications",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(20.dp)
+                        tint = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
                 if (unreadCount > 0) {
@@ -322,7 +397,7 @@ private fun CleanTopBar(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .offset(x = 1.dp, y = 1.dp)
-                            .size(8.dp)
+                            .size(9.dp)
                             .background(Color(0xFFFF3B30), CircleShape)
                     )
                 }
@@ -337,7 +412,8 @@ private fun HomeTab(
     userName: String,
     onNavigateToNotifications: () -> Unit,
     onNavigateToListing: (String) -> Unit,
-    onNavigateToCreateListing: () -> Unit
+    onNavigateToCreateListing: () -> Unit,
+    onNavigateToProfile: () -> Unit
 ) {
     val user = viewModel.currentUser
     val displayName = user.name.ifBlank { if (userName.isNotBlank() && userName != "User") userName else "Student" }
@@ -356,11 +432,12 @@ private fun HomeTab(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // ── Pinned Clean Compact Top Bar ──
+        // ── Pinned Clean Formal Top Bar ──
         CleanTopBar(
             displayName = displayName,
             unreadCount = unreadCount,
-            onNavigateToNotifications = onNavigateToNotifications
+            onNavigateToNotifications = onNavigateToNotifications,
+            onNavigateToProfile = onNavigateToProfile
         )
 
         // ── Scrollable Body Content ──
@@ -369,69 +446,72 @@ private fun HomeTab(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
 
-            // ── Live In-Place Compact Search Bar ──
+            // ── Live In-Place Search Bar ──
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(44.dp)
                     .padding(horizontal = 20.dp),
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
-                shadowElevation = 0.5.dp
+                shape = RoundedCornerShape(14.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                shadowElevation = 1.dp
             ) {
                 Row(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 12.dp),
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         Icons.Outlined.Search,
                         contentDescription = "Search",
-                        tint = if (searchQuery.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(20.dp)
+                        tint = if (searchQuery.isNotEmpty()) MaterialTheme.colorScheme.primary else Color(0xFF8E8E93),
+                        modifier = Modifier.size(22.dp)
                     )
                     Spacer(Modifier.width(8.dp))
-                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                        if (searchQuery.isEmpty()) {
+                    TextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = {
                             Text(
                                 text = "Search textbooks, calculators, tech...",
-                                color = MaterialTheme.colorScheme.secondary,
+                                color = Color(0xFF8E8E93),
                                 fontSize = 14.sp
                             )
-                        }
-                        BasicTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                color = MaterialTheme.colorScheme.onBackground,
-                                fontSize = 14.sp
-                            ),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
-                        )
-                    }
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(
-                            onClick = { searchQuery = "" },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Clear Search",
-                                tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
+                        },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            disabledContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            cursorColor = MaterialTheme.colorScheme.primary
+                        ),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                        trailingIcon = if (searchQuery.isNotEmpty()) {
+                            {
+                                IconButton(
+                                    onClick = { searchQuery = "" },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Clear Search",
+                                        tint = Color(0xFF8E8E93),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        } else null,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(18.dp))
 
             // ── Category Selector ──
             Text(
@@ -445,7 +525,7 @@ private fun HomeTab(
                 onSelect = viewModel::updateHomeCategory
             )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(18.dp))
 
             // ── Listings Section Header ──
             Row(
@@ -511,25 +591,35 @@ private fun SavedTab(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        // ── Premium header ────────────────────────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
                 .statusBarsPadding()
-                .padding(start = 20.dp, end = 20.dp, top = 2.dp, bottom = 4.dp)
+                .padding(horizontal = 20.dp)
+                .padding(top = 12.dp, bottom = 16.dp)
         ) {
-            Text(
-                text = "Saved Items",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "${saved.size} item${if (saved.size != 1) "s" else ""}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.secondary
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Saved Items",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Text(
+                    "${saved.size} item${if (saved.size != 1) "s" else ""}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f), thickness = 1.dp)
 
         if (saved.isEmpty()) {
             EmptyState("No saved items yet", "Tap the heart icon on any listing to save it")
@@ -538,7 +628,7 @@ private fun SavedTab(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(top = 4.dp)
+                    .padding(top = 12.dp)
             ) {
                 ListingGrid(
                     listings = saved,
@@ -564,32 +654,44 @@ private fun ChatTab(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        // ── Premium header ────────────────────────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
                 .statusBarsPadding()
-                .padding(start = 20.dp, end = 20.dp, top = 2.dp, bottom = 4.dp)
+                .padding(horizontal = 20.dp)
+                .padding(top = 12.dp, bottom = 16.dp)
         ) {
-            Text(
-                text = "Messages",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "${conversations.size} conversation${if (conversations.size != 1) "s" else ""}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.secondary
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Messages",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                if (conversations.isNotEmpty()) {
+                    Text(
+                        "${conversations.size} chat${if (conversations.size != 1) "s" else ""}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+            }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f), thickness = 1.dp)
 
         if (conversations.isEmpty()) {
             EmptyState("No messages yet", "Contact sellers on any listing to start chatting")
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(vertical = 4.dp)
+                contentPadding = PaddingValues(vertical = 8.dp)
             ) {
                 items(conversations) { conv ->
                     val otherUser = getUserById(conv.participantId)
@@ -601,8 +703,8 @@ private fun ChatTab(
                             .clickable { onNavigateToMessages() }
                             .padding(horizontal = 16.dp, vertical = 4.dp),
                         shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                        color = Color.White,
+                        border = BorderStroke(0.5.dp, Color(0xFFE5E7EB))
                     ) {
                         Row(
                             modifier = Modifier.padding(14.dp),
@@ -680,7 +782,6 @@ private fun ProfileTab(
     onNavigateToListing: (String) -> Unit,
     onNavigateToSaved: () -> Unit,
     onNavigateToMessages: () -> Unit,
-    onNavigateToNotifications: () -> Unit,
     onNavigateToEditProfile: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -688,6 +789,24 @@ private fun ProfileTab(
     val myListings = viewModel.getMyListings()
     val savedCount = viewModel.getSavedListings().size
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var isReviewsExpanded by remember { mutableStateOf(false) }
+    var isListingsExpanded by remember { mutableStateOf(true) }
+    var expandedFaqIndex by remember { mutableIntStateOf(-1) }
+
+    val profileFaqList = remember {
+        listOf(
+            "Who can register and trade on Second Shelf?" to "Second Shelf is exclusively available to verified students and staff of TAR UMT. You must use an official @student.tarc.edu.my email address to register.",
+            "Are there any fees or commissions for listing and selling?" to "No. Second Shelf is 100% free for all TAR UMT students. We take 0% commission and there are no listing or transaction fees.",
+            "How does payment and item handover work?" to "Transactions are completed in person on campus. Buyers inspect the item and pay the seller directly using DuitNow QR, instant bank transfer, or cash upon meetup.",
+            "Where are the best spots for meetups on campus?" to "We recommend high-traffic, well-lit campus areas during daytime hours, such as the Library Lobby, Cafeteria concourse, or Student Activity Centre.",
+            "How do student ratings and reviews work?" to "After completing a deal, either party can tap '★ Rate Deal' in chat to leave a 1 to 5 star rating, quick feedback tags, and written comments that display on the profile.",
+            "Can I edit or delete my listings after posting?" to "Yes! Go to Settings -> My Listings (or scroll to My Listings on your profile), tap your listing, and select Edit Listing or Delete.",
+            "What items are prohibited on Second Shelf?" to "Prohibited items include illegal substances, academic dishonesty materials (exam leakages, paid assignment services), weapons, and pirated copyrighted materials.",
+            "What should I do if a buyer or seller does not show up?" to "Message them in chat to confirm or reschedule. If the user continually ghosts or engages in dishonest conduct, you can report their profile.",
+            "How do I update my name, email, or campus branch?" to "Tap the Settings gear icon at the top right of your Profile page and select 'Edit Profile' to modify your personal details and campus info.",
+            "How do I report a suspicious listing or user?" to "On any listing or chat screen, tap the More/Report button to submit a report directly to campus moderators. For urgent safety matters, contact TAR UMT Campus Security."
+        )
+    }
 
     if (showLogoutDialog) {
         AlertDialog(
@@ -709,14 +828,14 @@ private fun ProfileTab(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(start = 20.dp, end = 20.dp, top = 2.dp, bottom = 6.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Profile", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             IconButton(
                 onClick = onNavigateToSettings,
-                modifier = Modifier.size(38.dp).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
+                modifier = Modifier.size(44.dp).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
             ) {
                 Icon(Icons.Default.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.primary)
             }
@@ -727,99 +846,356 @@ private fun ProfileTab(
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface
         ) {
-            Box(modifier = Modifier.fillMaxWidth()) {
-                // Top-right edit profile icon on the card
-                IconButton(
-                    onClick = onNavigateToEditProfile,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(6.dp)
-                        .size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Edit,
-                        contentDescription = "Edit Profile",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
+            Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(72.dp)) {
+                    if (user.avatarUrl.isNotBlank()) {
+                        coil.compose.AsyncImage(
+                            model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                .data(user.avatarUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Profile photo",
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize().clip(CircleShape)
+                        )
+                    } else {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(user.avatarInitial, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(user.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                if (user.email.isNotBlank()) {
+                    Text(user.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                }
+                Text(
+                    if (user.campus.isNotBlank()) "${user.university} • ${user.campus}" else user.university,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+                if (user.bio.isNotBlank()) {
+                    Text(
+                        user.bio,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
 
-                Column(
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                // User Rating Badge
+                val userReviews = viewModel.getReviewsForUser(user.id)
+                val avgRating = viewModel.getAverageRatingForUser(user.id)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFFFF8E1),
+                    border = BorderStroke(1.dp, Color(0xFFFFD54F)),
+                    modifier = Modifier.padding(top = 8.dp)
                 ) {
-                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(64.dp)) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(user.avatarInitial, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = Color(0xFFFFB800),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = String.format("%.1f", avgRating),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = Color(0xFFB78103)
+                        )
+                        Text(
+                            text = " (${userReviews.size} review${if (userReviews.size == 1) "" else "s"})",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Text(user.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    if (user.email.isNotBlank()) {
-                        Text(user.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
-                    }
-                    Text(
-                        if (user.campus.isNotBlank()) "${user.university} • ${user.campus}" else user.university,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
+                }
 
-                    Spacer(Modifier.height(14.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        ProfileStat("${myListings.size}", "Listed Items", onClick = onNavigateToCreateListing)
-                        VerticalDivider()
-                        ProfileStat("$savedCount", "Saved", onClick = onNavigateToSaved)
-                        VerticalDivider()
-                        ProfileStat("${viewModel.getUnreadNotificationCount()}", "Noticed", onClick = onNavigateToNotifications)
-                    }
+                Spacer(Modifier.height(20.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    ProfileStat("${myListings.size}", "Listed Items", onClick = onNavigateToCreateListing)
+                    VerticalDivider()
+                    ProfileStat("$savedCount", "Saved", onClick = onNavigateToSaved)
+                    VerticalDivider()
+                    ProfileStat("${viewModel.conversations.size}", "Messages", onClick = onNavigateToMessages)
                 }
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(16.dp))
 
-        ProfileMenuSection {
-            ProfileMenuItem(Icons.Default.Inventory2, "My Listings", MaterialTheme.colorScheme.primary, onClick = onNavigateToCreateListing)
-            ProfileMenuItem(Icons.Default.Logout, "Logout", MaterialTheme.colorScheme.error) { showLogoutDialog = true }
+        // Student Reviews Section (Expandable)
+        val allUserReviews = viewModel.getReviewsForUser(user.id)
+        if (allUserReviews.isNotEmpty()) {
+            val reviewsRotation by animateFloatAsState(targetValue = if (isReviewsExpanded) 180f else 0f, label = "reviewsChevron")
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { isReviewsExpanded = !isReviewsExpanded },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                "Student Reviews (${allUserReviews.size})",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                if (isReviewsExpanded) "Tap to collapse" else "Tap to view feedback",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFB800), modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = String.format("%.1f", viewModel.getAverageRatingForUser(user.id)),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = if (isReviewsExpanded) "Collapse" else "Expand",
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .rotate(reviewsRotation)
+                            )
+                        }
+                    }
+
+                    AnimatedVisibility(visible = isReviewsExpanded) {
+                        Column(
+                            modifier = Modifier.padding(top = 14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            allUserReviews.forEach { review ->
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.background,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                                    modifier = Modifier.size(28.dp)
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Text(review.authorAvatarInitial, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                                                    }
+                                                }
+                                                Spacer(Modifier.width(8.dp))
+                                                Column {
+                                                    Text(review.authorName, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                                    Text(review.timeAgo, fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary)
+                                                }
+                                            }
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                repeat(review.rating) {
+                                                    Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFB800), modifier = Modifier.size(14.dp))
+                                                }
+                                            }
+                                        }
+                                        if (review.comment.isNotBlank()) {
+                                            Spacer(Modifier.height(6.dp))
+                                            Text(review.comment, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        if (review.tags.isNotEmpty()) {
+                                            Spacer(Modifier.height(6.dp))
+                                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                review.tags.forEach { tag ->
+                                                    Surface(
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                                    ) {
+                                                        Text(tag, fontSize = 10.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
         }
 
-        Spacer(Modifier.height(14.dp))
-
+        // My Listings Section (Expandable)
+        val listingsRotation by animateFloatAsState(targetValue = if (isListingsExpanded) 180f else 0f, label = "listingsChevron")
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("My Listings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Button(onClick = onNavigateToCreateListing, shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { isListingsExpanded = !isListingsExpanded }
+                    .padding(vertical = 4.dp)
+            ) {
+                Text("My Listings (${myListings.size})", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(6.dp))
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (isListingsExpanded) "Collapse" else "Expand",
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .rotate(listingsRotation)
+                )
+            }
+            Button(onClick = onNavigateToCreateListing, shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
                 Text("List Item")
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
 
-        if (myListings.isEmpty()) {
-            EmptyState("No listings yet", "Tap List Item to sell something") {
-                Button(onClick = onNavigateToCreateListing) { Text("Sell Item") }
+        AnimatedVisibility(visible = isListingsExpanded) {
+            Column {
+                if (myListings.isEmpty()) {
+                    EmptyState("No listings yet", "Tap List Item to sell something") {
+                        Button(onClick = onNavigateToCreateListing) { Text("Sell Item") }
+                    }
+                } else {
+                    ListingGrid(
+                        listings = myListings,
+                        isFavorite = viewModel::isFavorite,
+                        onFavoriteClick = viewModel::toggleFavorite,
+                        onListingClick = onNavigateToListing
+                    )
+                }
             }
-        } else {
-            ListingGrid(
-                listings = myListings,
-                isFavorite = viewModel::isFavorite,
-                onFavoriteClick = viewModel::toggleFavorite,
-                onListingClick = onNavigateToListing
-            )
         }
-        Spacer(Modifier.height(20.dp))
+
+        Spacer(Modifier.height(24.dp))
+
+        // Frequently Asked Questions (FAQ) Section
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 14.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.HelpOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = "Frequently Asked Questions",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                profileFaqList.forEachIndexed { index, faq ->
+                    val isFaqExpanded = expandedFaqIndex == index
+                    val faqRotation by animateFloatAsState(targetValue = if (isFaqExpanded) 180f else 0f, label = "faqChevron$index")
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isFaqExpanded) MaterialTheme.colorScheme.primary.copy(alpha = 0.04f) else MaterialTheme.colorScheme.background,
+                        border = BorderStroke(0.5.dp, if (isFaqExpanded) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f) else Color(0xFFE5E7EB)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                expandedFaqIndex = if (isFaqExpanded) -1 else index
+                            }
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = faq.first,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isFaqExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = if (isFaqExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .rotate(faqRotation)
+                                )
+                            }
+
+                            AnimatedVisibility(visible = isFaqExpanded) {
+                                Column(modifier = Modifier.padding(top = 10.dp)) {
+                                    HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        text = faq.second,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        lineHeight = 18.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(28.dp))
     }
 }
 
 @Composable
 private fun VerticalDivider() {
-    Box(modifier = Modifier.width(0.5.dp).height(36.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)))
+    Box(modifier = Modifier.width(0.5.dp).height(40.dp).background(Color(0xFFE5E7EB)))
 }
 
 @Composable
@@ -830,36 +1206,5 @@ private fun ProfileStat(value: String, label: String, onClick: (() -> Unit)? = n
     ) {
         Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-    }
-}
-
-@Composable
-private fun ProfileMenuSection(content: @Composable ColumnScope.() -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface
-    ) {
-        Column(content = content)
-    }
-}
-
-@Composable
-private fun ProfileMenuItem(icon: ImageVector, label: String, iconColor: Color, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Surface(shape = RoundedCornerShape(10.dp), color = iconColor.copy(alpha = 0.12f), modifier = Modifier.size(36.dp)) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
-            }
-        }
-        Spacer(Modifier.width(14.dp))
-        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(16.dp))
     }
 }

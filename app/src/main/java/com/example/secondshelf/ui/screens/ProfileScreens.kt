@@ -1,6 +1,8 @@
 package com.example.secondshelf.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -8,10 +10,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,7 +33,11 @@ fun SavedItemsScreen(
     val saved = viewModel.getSavedListings()
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        TopBar(title = "Saved Items", onBack = onNavigateBack)
+        TopBar(
+            title = "Saved Items",
+            subtitle = if (saved.isEmpty()) "0 items" else "${saved.size} item${if (saved.size > 1) "s" else ""}",
+            onBack = onNavigateBack
+        )
 
         if (saved.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -52,9 +61,11 @@ fun SavedItemsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileScreen(
     viewModel: MarketplaceViewModel,
+    authViewModel: com.example.secondshelf.ui.AuthViewModel,
     onNavigateBack: () -> Unit
 ) {
     val user = viewModel.currentUser
@@ -62,10 +73,32 @@ fun EditProfileScreen(
     val canChangeName = daysUntilNameChange == 0
 
     var name by remember { mutableStateOf(user.name) }
-    var email by remember { mutableStateOf(user.email) }
-    var university by remember { mutableStateOf(user.university) }
-    var campus by remember { mutableStateOf(user.campus) }
+    var selectedCampus by remember { mutableStateOf(user.campus.ifBlank { "KL Main Campus" }) }
+    var bio by remember { mutableStateOf(user.bio.ifBlank { "TAR UMT Student" }) }
     var error by remember { mutableStateOf<String?>(null) }
+    var isSaving by remember { mutableStateOf(false) }
+
+    val avatarUrl = authViewModel.cachedAvatarUrl.ifBlank { user.avatarUrl }
+    val isUploading = authViewModel.isUploadingAvatar
+    val uploadError = authViewModel.avatarUploadError
+
+    val campuses = remember {
+        listOf(
+            "KL Main Campus",
+            "Penang Branch Campus",
+            "Perak Branch Campus",
+            "Johor Branch Campus",
+            "Pahang Branch Campus",
+            "Sabah Branch Campus"
+        )
+    }
+
+    // Gallery image picker
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        uri?.let { authViewModel.uploadAvatar(it) }
+    }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         TopBar(title = "Edit Profile", onBack = onNavigateBack)
@@ -78,19 +111,210 @@ fun EditProfileScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(80.dp)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(name.firstOrNull()?.uppercaseChar()?.toString() ?: "?", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White)
+
+            // ── Avatar with prominent camera badge ────────────────────────────
+            Box(
+                modifier = Modifier
+                    .size(108.dp)
+                    .clickable { imagePicker.launch("image/*") },
+                contentAlignment = Alignment.Center
+            ) {
+                // Circular Avatar
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    shadowElevation = 3.dp,
+                    modifier = Modifier.size(96.dp)
+                ) {
+                    if (avatarUrl.isNotBlank()) {
+                        coil.compose.AsyncImage(
+                            model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                .data(avatarUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Profile photo",
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape)
+                        )
+                    } else {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                                fontSize = 38.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+
+                // Loading overlay while uploading
+                if (isUploading) {
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.5f),
+                        shape = CircleShape,
+                        modifier = Modifier.size(96.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(28.dp),
+                                strokeWidth = 2.5.dp
+                            )
+                        }
+                    }
+                }
+
+                // Floating Camera Badge (bottom-right of avatar)
+                if (!isUploading) {
+                    Box(
+                        modifier = Modifier
+                            .size(104.dp),
+                        contentAlignment = Alignment.BottomEnd
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surface,
+                            shadowElevation = 4.dp,
+                            border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.background),
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.CameraAlt,
+                                    contentDescription = "Change photo",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
-            // Name field with 14-day cooldown indicator
+            Text(
+                text = if (isUploading) "Uploading photo…" else "Change Profile Photo",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            // Upload error banner
+            uploadError?.let {
+                Surface(
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            // ── Read-Only Email Identity Card ─────────────────────────────────
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text("Name *", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Student Email (Account Identity)",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(6.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                Icons.Default.Email,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = user.email.ifBlank { authViewModel.getUserEmail().ifBlank { "Not specified" } },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Permanent account login ID",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0xFF34C759).copy(alpha = 0.12f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Lock,
+                                    contentDescription = "Locked",
+                                    tint = Color(0xFF2E7D32),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "Verified",
+                                    color = Color(0xFF2E7D32),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Your student email is verified and cannot be modified after registration.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                    fontSize = 11.sp
+                )
+            }
+
+            // ── Display Name / Username Field (with 14-day cooldown) ──────────
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    "Display Name / Username *",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
                 Spacer(Modifier.height(6.dp))
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it; error = null },
+                    onValueChange = { input ->
+                        name = input.filter { it.isLetter() || it.isWhitespace() }
+                        error = null
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    },
                     enabled = canChangeName,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -106,69 +330,255 @@ fun EditProfileScreen(
                     )
                 } else {
                     Text(
-                        text = "Note: You can only change your name once every 14 days.",
+                        text = "Note: You can only change your display name once every 14 days.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.secondary,
-                        fontSize = 12.sp
+                        fontSize = 11.sp
                     )
                 }
             }
 
-            ProfileField("Email *", email) { email = it; error = null }
-            ProfileField("University *", university) { university = it; error = null }
-            ProfileField("Campus *", campus) { campus = it; error = null }
+            // ── Read-Only University Card ─────────────────────────────────────
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("University", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(6.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.School,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "TAR UMT",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Tunku Abdul Rahman University of Management and Technology",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+            }
 
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            // ── Campus Dropdown Selector ──────────────────────────────────────
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Campus Branch *", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(6.dp))
 
+                var campusMenuExpanded by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(
+                    expanded = campusMenuExpanded,
+                    onExpandedChange = { campusMenuExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedCampus,
+                        onValueChange = {},
+                        readOnly = true,
+                        leadingIcon = {
+                            Icon(Icons.Default.Place, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = campusMenuExpanded)
+                        },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = campusMenuExpanded,
+                        onDismissRequest = { campusMenuExpanded = false }
+                    ) {
+                        campuses.forEach { campus ->
+                            DropdownMenuItem(
+                                text = { Text(campus) },
+                                onClick = {
+                                    selectedCampus = campus
+                                    campusMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── Bio / About Me Field ──────────────────────────────────────────
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Bio / About You", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                    Text("${bio.length}/120", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                }
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(
+                    value = bio,
+                    onValueChange = { if (it.length <= 120) bio = it },
+                    placeholder = { Text("e.g. Year 2 CS student | Buying & selling textbooks") },
+                    leadingIcon = {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    },
+                    minLines = 2,
+                    maxLines = 3,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+
+            // Error banner
+            error?.let {
+                Surface(
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Save Button
             Button(
                 onClick = {
-                    val result = viewModel.updateProfile(name, email, university, campus)
-                    if (result == null) onNavigateBack()
-                    else error = result
+                    if (name.isBlank()) {
+                        error = "Display name cannot be blank."
+                        return@Button
+                    }
+                    isSaving = true
+                    val currentAvatar = authViewModel.cachedAvatarUrl.ifBlank { user.avatarUrl }
+                    val result = viewModel.updateProfile(
+                        name = name,
+                        campus = selectedCampus,
+                        bio = bio,
+                        avatarUrl = currentAvatar
+                    )
+                    if (result == null) {
+                        // Persist to session and Supabase user metadata
+                        authViewModel.updateUserProfile(
+                            fullName = name.trim(),
+                            campus = selectedCampus
+                        ) {
+                            isSaving = false
+                            onNavigateBack()
+                        }
+                    } else {
+                        isSaving = false
+                        error = result
+                    }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                enabled = !isSaving,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Save Profile", modifier = Modifier.padding(vertical = 4.dp))
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Saving Changes…")
+                } else {
+                    Text("Save Changes", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+fun TopBar(
+    title: String,
+    subtitle: String? = null,
+    onBack: () -> Unit
+) {
+    val primary = MaterialTheme.colorScheme.primary
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
+            .padding(horizontal = 20.dp)
+            .padding(top = 12.dp, bottom = 16.dp)
+    ) {
+        // Back button row
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(primary.copy(alpha = 0.10f)),
+                contentAlignment = Alignment.Center
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // Title + subtitle row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
             }
         }
     }
-}
-
-@Composable
-private fun ProfileField(label: String, value: String, onChange: (String) -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(6.dp))
-        OutlinedTextField(
-            value = value,
-            onValueChange = onChange,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            singleLine = true
-        )
-    }
-}
-
-@Composable
-fun TopBar(title: String, onBack: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(
-            onClick = onBack,
-            modifier = Modifier
-                .size(40.dp)
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
-        ) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-        }
-        Spacer(Modifier.width(12.dp))
-        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-    }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), thickness = 0.5.dp)
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f),
+        thickness = 1.dp
+    )
 }

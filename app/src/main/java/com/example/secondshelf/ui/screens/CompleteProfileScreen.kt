@@ -232,7 +232,7 @@ fun CompleteProfileScreen(
             if (isPhoneInvalid) {
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Invalid phone number (must start with 01 and be 10-11 digits)",
+                    text = "Invalid phone number",
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                     fontSize = 12.sp
@@ -249,14 +249,18 @@ fun CompleteProfileScreen(
                         return@Button
                     }
                     if (isPhoneInvalid) {
-                        errorText = "Invalid phone number. Please enter a valid number (e.g. 0123456789)."
+                        errorText = "Invalid phone number."
                         return@Button
                     }
                     authViewModel.updateUserProfile(
                         fullName = fullName.trim(),
                         campus = selectedCampus
                     ) {
-                        marketplaceViewModel.syncAuthUser(fullName.trim(), email)
+                        marketplaceViewModel.syncAuthUser(
+                            name = fullName.trim(),
+                            email = email,
+                            campus = selectedCampus
+                        )
                         onNavigateToHome()
                     }
                 },
