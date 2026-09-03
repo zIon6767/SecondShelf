@@ -471,7 +471,14 @@ class MarketplaceViewModel(
                     location = location.trim()
                 )
             ).onSuccess { record ->
-                listings = listings.map { if (it.id == id) toUiListing(record) else it }
+                val existingListing = listings.firstOrNull { it.id == id }
+                listings = listings.map { listing ->
+                    if (listing.id == id) {
+                        toUiListing(record, imageUrl = existingListing?.imageUrl)
+                    } else {
+                        listing
+                    }
+                }
                 showToast("Listing updated")
                 onComplete(null)
             }.onFailure { error ->
