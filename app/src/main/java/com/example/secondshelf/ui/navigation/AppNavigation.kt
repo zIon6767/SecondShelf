@@ -160,6 +160,7 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
         composable("home") {
             HomeScreen(
                 viewModel = marketplaceViewModel,
+                userId = authViewModel.getUserId(),
                 userName = authViewModel.getUserFullName(),
                 userEmail = authViewModel.getUserEmail(),
                 userCampus = authViewModel.getUserCampus(),

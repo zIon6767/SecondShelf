@@ -4,10 +4,23 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.secondshelf.supabase
 import com.example.secondshelf.ui.model.*
+import io.github.jan.supabase.postgrest.postgrest
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import org.json.JSONArray
 import java.util.UUID
 
 class MarketplaceViewModel : ViewModel() {
+
+    init {
+        fetchReviews()
+    }
 
     var currentUser by mutableStateOf(
         User(
@@ -407,8 +420,61 @@ class MarketplaceViewModel : ViewModel() {
         return null
     }
 
+    fun fetchReviews() {
+        viewModelScope.launch {
+            runCatching {
+                val response = supabase.postgrest.from("reviews").select()
+                val body = response.data
+                val array = JSONArray(body)
+                val loadedReviews = mutableListOf<Review>()
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val tagsList = mutableListOf<String>()
+                    val tagsArr = obj.optJSONArray("tags")
+                    if (tagsArr != null) {
+                        for (j in 0 until tagsArr.length()) {
+                            tagsList.add(tagsArr.getString(j))
+                        }
+                    }
+                    val authorName = obj.optString("author_name", "Student")
+                    val initial = obj.optString("author_avatar_initial").ifBlank {
+                        authorName.firstOrNull()?.uppercaseChar()?.toString() ?: "S"
+                    }
+                    loadedReviews.add(
+                        Review(
+                            id = obj.optString("id", UUID.randomUUID().toString()),
+                            authorId = obj.optString("author_id", "demo"),
+                            authorName = authorName,
+                            authorAvatarInitial = initial,
+                            targetUserId = obj.optString("target_user_id", "user-current"),
+                            listingTitle = obj.optString("listing_title", "Listing"),
+                            rating = obj.optInt("rating", 5),
+                            comment = obj.optString("comment", ""),
+                            tags = tagsList,
+                            timeAgo = "Recently"
+                        )
+                    )
+                }
+                if (loadedReviews.isNotEmpty()) {
+                    reviews = loadedReviews
+                }
+            }
+        }
+    }
+
     fun getReviewsForUser(userId: String): List<Review> {
-        return reviews.filter { it.targetUserId == userId || it.targetUserId == "user-current" }
+        val isTargetingCurrent = userId == "user-current" ||
+            userId == currentUser.id ||
+            (currentUser.email.isNotBlank() && userId == currentUser.email)
+        return reviews.filter { review ->
+            if (isTargetingCurrent) {
+                review.targetUserId == "user-current" ||
+                (currentUser.id.isNotBlank() && review.targetUserId == currentUser.id) ||
+                (currentUser.email.isNotBlank() && review.targetUserId == currentUser.email)
+            } else {
+                review.targetUserId == userId
+            }
+        }
     }
 
     fun getAverageRatingForUser(userId: String): Double {
@@ -438,6 +504,27 @@ class MarketplaceViewModel : ViewModel() {
         )
         reviews = listOf(newReview) + reviews
         showToast("Review submitted successfully! Thank you.")
+
+        viewModelScope.launch {
+            runCatching {
+                supabase.postgrest.from("reviews").insert(
+                    listOf(
+                        buildJsonObject {
+                            put("author_id", newReview.authorId)
+                            put("author_name", newReview.authorName)
+                            put("author_avatar_initial", newReview.authorAvatarInitial)
+                            put("target_user_id", newReview.targetUserId)
+                            put("listing_title", newReview.listingTitle)
+                            put("rating", newReview.rating)
+                            put("comment", newReview.comment)
+                            put("tags", buildJsonArray {
+                                tags.forEach { add(it) }
+                            })
+                        }
+                    )
+                )
+            }
+        }
     }
 
     fun clearAllUserData() {
