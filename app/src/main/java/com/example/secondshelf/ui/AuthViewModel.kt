@@ -14,11 +14,14 @@ import com.example.secondshelf.data.SessionManager
 import com.example.secondshelf.supabase
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.storage.storage
+import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -47,12 +50,21 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var cachedEmail by mutableStateOf("")
         private set
+    var cachedAvatarUrl by mutableStateOf("")
+        private set
+
+    // Upload state: null = idle, true = uploading, false = done/error
+    var isUploadingAvatar by mutableStateOf(false)
+        private set
+    var avatarUploadError by mutableStateOf<String?>(null)
+        private set
 
     init {
         if (sessionManager.isLoggedIn) {
             cachedFullName = sessionManager.userName
             cachedEmail = sessionManager.userEmail
             cachedCampus = sessionManager.userCampus
+            cachedAvatarUrl = sessionManager.avatarUrl
         }
     }
 
@@ -301,13 +313,28 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
+            val uid = getUserId()
+            val email = getUserEmail()
             runCatching {
+                // 1. Update Supabase Auth user metadata
                 supabase.auth.updateUser {
                     data = buildJsonObject {
                         put("full_name", fullName)
                         put("campus", campus)
                     }
                 }
+                // 2. Sync the profiles table row
+                supabase.postgrest.from("profiles").upsert(
+                    listOf(
+                        buildJsonObject {
+                            put("id", uid)
+                            put("email", email)
+                            put("name", fullName)
+                            put("campus", campus)
+                            put("university", "TAR UMT")
+                        }
+                    )
+                )
             }
             _uiState.value = AuthUiState.Idle
             onComplete()
@@ -368,6 +395,54 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ── Avatar Upload ─────────────────────────────────────────────────────────
+
+    fun uploadAvatar(uri: Uri) {
+        viewModelScope.launch {
+            isUploadingAvatar = true
+            avatarUploadError = null
+            runCatching {
+                val context = getApplication<Application>().applicationContext
+                // Read bytes from the picked image URI
+                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    ?: error("Could not read image file")
+
+                val userId = sessionManager.userId.ifBlank { supabase.auth.currentUserOrNull()?.id ?: "unknown" }
+                val ext = context.contentResolver.getType(uri)
+                    ?.substringAfter("/")?.lowercase() ?: "jpg"
+                val path = "public/$userId/avatar.$ext"
+
+                // Upload to the "avatars" bucket (create this in Supabase Storage dashboard)
+                supabase.storage.from("avatars").upload(path, bytes) {
+                    upsert = true
+                }
+
+                // Get the public URL
+                val publicUrl = supabase.storage.from("avatars").publicUrl(path)
+                // Add cache-busting so Coil reloads the new image
+                val urlWithBust = "$publicUrl?t=${System.currentTimeMillis()}"
+
+                cachedAvatarUrl = urlWithBust
+                sessionManager.avatarUrl = urlWithBust
+
+                // Sync avatar_url to the profiles table
+                supabase.postgrest.from("profiles").upsert(
+                    listOf(
+                        buildJsonObject {
+                            put("id", userId)
+                            put("email", sessionManager.userEmail)
+                            put("name", sessionManager.userName)
+                            put("avatar_url", urlWithBust)
+                        }
+                    )
+                )
+            }.onFailure { e ->
+                avatarUploadError = "Upload failed: ${e.message}"
+            }
+            isUploadingAvatar = false
+        }
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     fun resetState() { _uiState.value = AuthUiState.Idle }
@@ -375,17 +450,22 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private fun mapSignInError(e: Throwable): String {
         val msg = e.message.orEmpty().lowercase()
         return when {
-            ("invalid_credentials" in msg) || ("invalid login credentials" in msg) ->
-                "No account found with this email, or the password is incorrect.\n" +
-                "Don't have an account yet? Please tap Sign Up below."
+            // Account exists but was created via Google OAuth (no password set)
+            "provider" in msg && ("email" in msg || "not found" in msg) ->
+                "This email is linked to a Google account. Please tap \"Continue with Google\" to sign in."
+            "should login with" in msg || "oauth" in msg ->
+                "This email is registered via Google. Please tap \"Continue with Google\" to sign in."
+            (("invalid_credentials" in msg) || ("invalid login credentials" in msg)) ->
+                "Email or password is incorrect.\n" +
+                "If you signed up with Google, tap \"Continue with Google\" instead."
             "email not confirmed" in msg ->
                 "Please verify your email address before logging in. Check your inbox."
             "too many requests" in msg ->
                 "Too many login attempts. Please wait a moment and try again."
             "unable to resolve host" in msg || "timeout" in msg || "connect" in msg ->
-                "Network Error: Unable to reach Supabase. Please Cold Boot your emulator or check your Wi-Fi."
+                "Network Error: Unable to reach the server. Please check your Wi-Fi connection."
             else ->
-                "Login failed: ${e.localizedMessage ?: "Check connection"}. Please ensure your Supabase Key is correct."
+                "Login failed: ${e.localizedMessage ?: "Check connection"}."
         }
     }
 

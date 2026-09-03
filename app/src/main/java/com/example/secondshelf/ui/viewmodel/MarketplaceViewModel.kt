@@ -11,6 +11,13 @@ import com.example.secondshelf.data.marketplace.SupabaseMarketplaceRepository
 import com.example.secondshelf.data.marketplace.UpdateListingRecord
 import com.example.secondshelf.supabase
 import com.example.secondshelf.ui.model.*
+import io.github.jan.supabase.postgrest.postgrest
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import org.json.JSONArray
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -18,6 +25,10 @@ import java.util.UUID
 class MarketplaceViewModel(
     private val repository: SupabaseMarketplaceRepository = SupabaseMarketplaceRepository()
 ) : ViewModel() {
+
+    init {
+        fetchReviews()
+    }
 
     var currentUser by mutableStateOf(
         User(
@@ -35,7 +46,8 @@ class MarketplaceViewModel(
         name: String = "",
         email: String = "",
         university: String = "",
-        campus: String = ""
+        campus: String = "",
+        avatarUrl: String = ""
     ) {
         val previousId = currentUser.id
         val cleanId = id.ifBlank { currentUser.id }
@@ -52,6 +64,7 @@ class MarketplaceViewModel(
         }
         val cleanUni = if (university.isNotBlank() && university != "null") university else currentUser.university
         val cleanCampus = if (campus.isNotBlank() && campus != "null") campus else currentUser.campus
+        val cleanAvatarUrl = if (avatarUrl.isNotBlank()) avatarUrl else currentUser.avatarUrl
         val initial = if (cleanName.isNotBlank() && cleanName != "Student") {
             cleanName.first().uppercaseChar().toString()
         } else if (cleanEmail.isNotBlank()) {
@@ -65,7 +78,8 @@ class MarketplaceViewModel(
             email = cleanEmail,
             university = cleanUni,
             campus = cleanCampus,
-            avatarInitial = initial
+            avatarInitial = initial,
+            avatarUrl = cleanAvatarUrl
         )
         if (cleanId != previousId && isSupabaseUserId(cleanId)) {
             refreshMarketplace()
@@ -511,16 +525,14 @@ class MarketplaceViewModel(
 
     fun canChangeName(): Boolean = getDaysUntilNextNameChange() == 0
 
-    fun updateProfile(name: String, email: String, university: String, campus: String): String? {
+    fun updateProfile(
+        name: String,
+        campus: String,
+        bio: String = currentUser.bio,
+        avatarUrl: String = currentUser.avatarUrl
+    ): String? {
         val trimmedName = name.trim()
-        if (trimmedName.isBlank()) return "Name is required"
-        val trimmedEmail = email.trim()
-        if (trimmedEmail.isBlank()) return "Email is required"
-
-        val studentEmailRegex = "^[A-Za-z0-9+_.-]+@student\\.tarc\\.edu\\.my$".toRegex(RegexOption.IGNORE_CASE)
-        if (!studentEmailRegex.matches(trimmedEmail)) {
-            return "Invalid email address"
-        }
+        if (trimmedName.isBlank()) return "Name cannot be blank"
 
         var newLastNameChange = currentUser.lastNameChangeTimestamp
         if (trimmedName != currentUser.name) {
@@ -533,18 +545,71 @@ class MarketplaceViewModel(
 
         currentUser = currentUser.copy(
             name = trimmedName,
-            email = trimmedEmail,
-            university = university.trim(),
-            campus = campus.trim(),
-            avatarInitial = trimmedName.first().uppercaseChar().toString(),
+            campus = campus.trim().ifBlank { "KL Main Campus" },
+            bio = bio.trim().ifBlank { "TAR UMT Student" },
+            avatarInitial = if (trimmedName.isNotBlank()) trimmedName.first().uppercaseChar().toString() else "U",
+            avatarUrl = if (avatarUrl.isNotBlank()) avatarUrl else currentUser.avatarUrl,
             lastNameChangeTimestamp = newLastNameChange
         )
         showToast("Profile updated successfully")
         return null
     }
 
+    fun fetchReviews() {
+        viewModelScope.launch {
+            runCatching {
+                val response = supabase.postgrest.from("reviews").select()
+                val body = response.data
+                val array = JSONArray(body)
+                val loadedReviews = mutableListOf<Review>()
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val tagsList = mutableListOf<String>()
+                    val tagsArr = obj.optJSONArray("tags")
+                    if (tagsArr != null) {
+                        for (j in 0 until tagsArr.length()) {
+                            tagsList.add(tagsArr.getString(j))
+                        }
+                    }
+                    val authorName = obj.optString("author_name", "Student")
+                    val initial = obj.optString("author_avatar_initial").ifBlank {
+                        authorName.firstOrNull()?.uppercaseChar()?.toString() ?: "S"
+                    }
+                    loadedReviews.add(
+                        Review(
+                            id = obj.optString("id", UUID.randomUUID().toString()),
+                            authorId = obj.optString("author_id", "demo"),
+                            authorName = authorName,
+                            authorAvatarInitial = initial,
+                            targetUserId = obj.optString("target_user_id", "user-current"),
+                            listingTitle = obj.optString("listing_title", "Listing"),
+                            rating = obj.optInt("rating", 5),
+                            comment = obj.optString("comment", ""),
+                            tags = tagsList,
+                            timeAgo = "Recently"
+                        )
+                    )
+                }
+                if (loadedReviews.isNotEmpty()) {
+                    reviews = loadedReviews
+                }
+            }
+        }
+    }
+
     fun getReviewsForUser(userId: String): List<Review> {
-        return reviews.filter { it.targetUserId == userId || it.targetUserId == "user-current" }
+        val isTargetingCurrent = userId == "user-current" ||
+            userId == currentUser.id ||
+            (currentUser.email.isNotBlank() && userId == currentUser.email)
+        return reviews.filter { review ->
+            if (isTargetingCurrent) {
+                review.targetUserId == "user-current" ||
+                (currentUser.id.isNotBlank() && review.targetUserId == currentUser.id) ||
+                (currentUser.email.isNotBlank() && review.targetUserId == currentUser.email)
+            } else {
+                review.targetUserId == userId
+            }
+        }
     }
 
     fun getAverageRatingForUser(userId: String): Double {
@@ -574,6 +639,27 @@ class MarketplaceViewModel(
         )
         reviews = listOf(newReview) + reviews
         showToast("Review submitted successfully! Thank you.")
+
+        viewModelScope.launch {
+            runCatching {
+                supabase.postgrest.from("reviews").insert(
+                    listOf(
+                        buildJsonObject {
+                            put("author_id", newReview.authorId)
+                            put("author_name", newReview.authorName)
+                            put("author_avatar_initial", newReview.authorAvatarInitial)
+                            put("target_user_id", newReview.targetUserId)
+                            put("listing_title", newReview.listingTitle)
+                            put("rating", newReview.rating)
+                            put("comment", newReview.comment)
+                            put("tags", buildJsonArray {
+                                tags.forEach { add(it) }
+                            })
+                        }
+                    )
+                )
+            }
+        }
     }
 
     fun clearAllUserData() {

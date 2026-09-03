@@ -19,6 +19,7 @@ import com.example.secondshelf.ui.AuthUiState
 import com.example.secondshelf.ui.AuthViewModel
 import com.example.secondshelf.ui.screens.*
 import com.example.secondshelf.ui.theme.SecondShelfTheme
+import com.example.secondshelf.ui.viewmodel.ChatViewModel
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 
 @Composable
@@ -165,6 +166,7 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                 userEmail = authViewModel.getUserEmail(),
                 userCampus = authViewModel.getUserCampus(),
                 userUniversity = authViewModel.getUserUniversity(),
+                userAvatarUrl = authViewModel.cachedAvatarUrl,
                 onNavigateToNotifications = { navController.navigate("notifications") },
                 onNavigateToMarketplace = { navController.navigate("marketplace") },
                 onNavigateToListing = { id -> navController.navigate("listing/$id") },
@@ -301,10 +303,13 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                 navArgument("listingId") { type = NavType.StringType }
             )
         ) { backStackEntry ->
+            val chatViewModel: ChatViewModel = viewModel()
             ConversationScreen(
                 participantId = backStackEntry.arguments?.getString("participantId") ?: return@composable,
                 listingId = backStackEntry.arguments?.getString("listingId") ?: return@composable,
                 viewModel = marketplaceViewModel,
+                chatViewModel = chatViewModel,
+                currentUserId = authViewModel.getUserId(),
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -312,6 +317,7 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
         composable("edit_profile") {
             EditProfileScreen(
                 viewModel = marketplaceViewModel,
+                authViewModel = authViewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
