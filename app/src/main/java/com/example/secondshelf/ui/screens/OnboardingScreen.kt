@@ -26,7 +26,7 @@ data class OnboardingSlide(
 fun OnboardingScreen(onNavigateToLogin: () -> Unit) {
     var currentStep by remember { mutableIntStateOf(0) }
     
-    val slides = listOf(
+    val slides = listOf<OnboardingSlide>(
         OnboardingSlide(Icons.Default.Star, "Buy affordable campus essentials", "Find cheap textbooks, calculators, and dorm gear right on campus."),
         OnboardingSlide(Icons.Default.Info, "Sell unused items easily", "Declutter your room and make some extra cash."),
         OnboardingSlide(Icons.Default.CheckCircle, "Trade safely with verified students", "Exclusive to your university. No strangers, just peers.")

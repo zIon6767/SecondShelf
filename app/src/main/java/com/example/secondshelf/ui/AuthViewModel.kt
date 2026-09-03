@@ -231,6 +231,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Sign in with email and password via Supabase */
     fun signIn(email: String, password: String) {
+        if (BuildConfig.SUPABASE_ANON_KEY.contains("PLACEHOLDER") || BuildConfig.SUPABASE_ANON_KEY.isBlank()) {
+            setError("Configuration Error: Please update your SUPABASE_ANON_KEY in local.properties with your 'ey...' key")
+            return
+        }
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             runCatching {
@@ -252,6 +256,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Register a new account with email and password via Supabase */
     fun signUp(email: String, password: String, fullName: String, phone: String) {
+        if (BuildConfig.SUPABASE_ANON_KEY.contains("PLACEHOLDER") || BuildConfig.SUPABASE_ANON_KEY.isBlank()) {
+            setError("Configuration Error: Please update your SUPABASE_ANON_KEY in local.properties with your 'ey...' key")
+            return
+        }
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             runCatching {
@@ -369,7 +377,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             runCatching {
-                supabase.auth.parseSessionFromUrl(uri.toString())
+                val session = supabase.auth.parseSessionFromUrl(uri.toString())
+                supabase.auth.importSession(session)
             }.onSuccess {
                 val user = supabase.auth.currentUserOrNull()
 
