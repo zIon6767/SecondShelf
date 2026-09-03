@@ -3,6 +3,7 @@ package com.example.secondshelf.data.marketplace
 import com.example.secondshelf.supabase
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.storage.storage
 import java.util.UUID
 import kotlinx.serialization.SerialName
@@ -139,8 +140,8 @@ class SupabaseMarketplaceRepository(
     }
 
     suspend fun getSellerProfiles(): Result<Map<String, SellerProfileRecord>> = runCatching {
-        client.from(PROFILES_TABLE)
-            .select()
+        client.postgrest
+            .rpc("get_marketplace_seller_profiles")
             .decodeList<SellerProfileRecord>()
             .associateBy(SellerProfileRecord::id)
     }
@@ -235,7 +236,6 @@ class SupabaseMarketplaceRepository(
     private companion object {
         const val LISTINGS_TABLE = "listings"
         const val FAVORITES_TABLE = "favorites"
-        const val PROFILES_TABLE = "profiles"
         const val LISTING_IMAGES_TABLE = "listing_images"
         const val LISTING_IMAGES_BUCKET = "listing-images"
         const val ACTIVE_STATUS = "ACTIVE"
