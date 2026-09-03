@@ -103,7 +103,7 @@ fun CreateListingScreen(
                 OutlinedTextField(
                     value = priceText,
                     onValueChange = { priceText = it.filter { c -> c.isDigit() }; error = null },
-                    placeholder = { Text("40") },
+                    placeholder = { Text("e.g. 40") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
