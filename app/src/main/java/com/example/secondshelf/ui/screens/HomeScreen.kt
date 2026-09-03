@@ -39,6 +39,7 @@ import java.util.Calendar
 @Composable
 fun HomeScreen(
     viewModel: MarketplaceViewModel,
+    userId: String = "",
     userName: String = "User",
     userEmail: String = "",
     userCampus: String = "",
@@ -56,8 +57,9 @@ fun HomeScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(userName, userEmail, userCampus, userUniversity) {
+    LaunchedEffect(userId, userName, userEmail, userCampus, userUniversity) {
         viewModel.syncAuthUser(
+            id = userId,
             name = userName,
             email = userEmail,
             campus = userCampus,
