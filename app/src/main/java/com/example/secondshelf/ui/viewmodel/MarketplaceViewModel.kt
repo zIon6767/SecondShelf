@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.secondshelf.supabase
+import com.example.secondshelf.data.ChatRepository
 import com.example.secondshelf.ui.model.*
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.launch
@@ -17,6 +18,8 @@ import org.json.JSONArray
 import java.util.UUID
 
 class MarketplaceViewModel : ViewModel() {
+
+    private val chatRepository = ChatRepository()
 
     init {
         fetchReviews()
@@ -117,6 +120,9 @@ class MarketplaceViewModel : ViewModel() {
         private set
 
     var conversations by mutableStateOf(initialConversations)
+        private set
+
+    var isLoadingConversations by mutableStateOf(false)
         private set
 
     var homeCategory by mutableStateOf(Category.ALL)
@@ -386,6 +392,61 @@ class MarketplaceViewModel : ViewModel() {
             if (conv.participantId == participantId && conv.listingId == listingId) {
                 conv.copy(unreadCount = 0)
             } else conv
+        }
+    }
+
+    /**
+     * Fetches all real conversations for the current user from Supabase and
+     * updates the local [conversations] state.  Call this when entering the
+     * Messages list screen to ensure fresh data is shown.
+     */
+    fun refreshConversations() {
+        val myId = currentUser.id
+        if (myId.isBlank() || myId == "user-current") return
+        viewModelScope.launch {
+            isLoadingConversations = true
+            val remote = chatRepository.loadConversations(myId)
+            if (remote.isNotEmpty()) {
+                conversations = remote
+            }
+            isLoadingConversations = false
+        }
+    }
+
+    /**
+     * Inserts or updates a single [Conversation] entry in the local list.
+     * Call this when the user enters a chat from the listing detail page so
+     * that the Messages list reflects the conversation immediately (even before
+     * a full [refreshConversations] is triggered).
+     */
+    fun upsertConversation(
+        participantId: String,
+        listingId: String,
+        lastMessage: String = "",
+        lastTimestamp: String = ""
+    ) {
+        val existing = conversations.find { it.participantId == participantId && it.listingId == listingId }
+        conversations = if (existing != null) {
+            conversations.map { conv ->
+                if (conv.participantId == participantId && conv.listingId == listingId) {
+                    conv.copy(
+                        lastMessage = lastMessage.ifBlank { conv.lastMessage },
+                        lastTimestamp = lastTimestamp.ifBlank { conv.lastTimestamp },
+                        unreadCount = 0
+                    )
+                } else conv
+            }
+        } else {
+            listOf(
+                Conversation(
+                    id = "${listingId}_${participantId}",
+                    listingId = listingId,
+                    participantId = participantId,
+                    lastMessage = lastMessage,
+                    lastTimestamp = lastTimestamp,
+                    unreadCount = 0
+                )
+            ) + conversations
         }
     }
 

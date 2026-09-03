@@ -52,6 +52,7 @@ fun HomeScreen(
     onNavigateToCreateListing: () -> Unit,
     onNavigateToSaved: () -> Unit,
     onNavigateToMessages: () -> Unit,
+    onNavigateToChat: (partnerId: String, listingId: String) -> Unit = { _, _ -> },
     onNavigateToEditProfile: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -150,7 +151,7 @@ fun HomeScreen(
                     onNavigateToProfile = { selectedTab = 3 }
                 )
                 1 -> SavedTab(viewModel, onNavigateToListing, onNavigateToCreateListing)
-                2 -> ChatTab(viewModel, onNavigateToMessages)
+                2 -> ChatTab(viewModel, onNavigateToChat)
                 3 -> ProfileTab(
                     viewModel,
                     onNavigateToSettings,
@@ -645,9 +646,14 @@ private fun SavedTab(
 @Composable
 private fun ChatTab(
     viewModel: MarketplaceViewModel,
-    onNavigateToMessages: () -> Unit
+    onNavigateToChat: (partnerId: String, listingId: String) -> Unit
 ) {
     val conversations = viewModel.conversations
+
+    // Refresh conversations from Supabase when entering Chat Tab
+    LaunchedEffect(Unit) {
+        viewModel.refreshConversations()
+    }
 
     Column(
         modifier = Modifier
@@ -695,12 +701,18 @@ private fun ChatTab(
             ) {
                 items(conversations) { conv ->
                     val otherUser = getUserById(conv.participantId)
+                    val displayName = getSellerName(conv.participantId)
+                    val avatarLetter = if (displayName != "Unknown Seller") {
+                        displayName.first().uppercaseChar().toString()
+                    } else {
+                        conv.participantId.firstOrNull()?.uppercaseChar()?.toString() ?: "U"
+                    }
                     val listing = viewModel.getListing(conv.listingId)
 
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onNavigateToMessages() }
+                            .clickable { onNavigateToChat(conv.participantId, conv.listingId) }
                             .padding(horizontal = 16.dp, vertical = 4.dp),
                         shape = RoundedCornerShape(12.dp),
                         color = Color.White,

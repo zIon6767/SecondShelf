@@ -23,10 +23,12 @@ import com.example.secondshelf.ui.viewmodel.ChatViewModel
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 
 @Composable
-fun AppNavigation(authCallbackUri: Uri? = null) {
+fun AppNavigation(
+    authCallbackUri: Uri? = null,
+    marketplaceViewModel: MarketplaceViewModel = viewModel()
+) {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
-    val marketplaceViewModel: MarketplaceViewModel = viewModel()
     val authUiState by authViewModel.uiState.collectAsState()
 
     // Trigger OAuth token exchange when the deep-link arrives
@@ -174,6 +176,9 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                 onNavigateToCreateListing = { navController.navigate("create_listing") },
                 onNavigateToSaved = { navController.navigate("saved") },
                 onNavigateToMessages = { navController.navigate("messages") },
+                onNavigateToChat = { partnerId, listingId ->
+                    navController.navigate("chat_screen/$partnerId/$listingId")
+                },
                 onNavigateToEditProfile = { navController.navigate("edit_profile") },
                 onLogout = {
                     authViewModel.signOut()
@@ -200,7 +205,7 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                 viewModel = marketplaceViewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onContactSeller = { participantId, lid ->
-                    navController.navigate("conversation/$participantId/$lid")
+                    navController.navigate("chat_screen/$participantId/$lid")
                 },
                 onViewSeller = { /* seller info shown in detail */ },
                 onEditListing = { id -> navController.navigate("edit_listing/$id") }
@@ -291,25 +296,61 @@ fun AppNavigation(authCallbackUri: Uri? = null) {
                 viewModel = marketplaceViewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onConversationClick = { participantId, listingId ->
-                    navController.navigate("conversation/$participantId/$listingId")
+                    navController.navigate("chat_screen/$participantId/$listingId")
                 }
+            )
+        }
+
+        composable(
+            route = "chat_screen/{partnerId}/{listingId}",
+            arguments = listOf(
+                navArgument("partnerId") { type = NavType.StringType; defaultValue = "" },
+                navArgument("listingId") { type = NavType.StringType; defaultValue = "" }
+            )
+        ) { backStackEntry ->
+            val chatViewModel: ChatViewModel = viewModel()
+            val effectiveUserId = authViewModel.getUserId().ifBlank { marketplaceViewModel.currentUser.id }
+            val partnerId = backStackEntry.arguments?.getString("partnerId") ?: ""
+            val listingId = backStackEntry.arguments?.getString("listingId") ?: ""
+
+            if (partnerId.isBlank() || listingId.isBlank()) {
+                LaunchedEffect(Unit) { navController.popBackStack() }
+                return@composable
+            }
+
+            ConversationScreen(
+                participantId = partnerId,
+                listingId = listingId,
+                viewModel = marketplaceViewModel,
+                chatViewModel = chatViewModel,
+                currentUserId = effectiveUserId,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
         composable(
             route = "conversation/{participantId}/{listingId}",
             arguments = listOf(
-                navArgument("participantId") { type = NavType.StringType },
-                navArgument("listingId") { type = NavType.StringType }
+                navArgument("participantId") { type = NavType.StringType; defaultValue = "" },
+                navArgument("listingId") { type = NavType.StringType; defaultValue = "" }
             )
         ) { backStackEntry ->
             val chatViewModel: ChatViewModel = viewModel()
+            val effectiveUserId = authViewModel.getUserId().ifBlank { marketplaceViewModel.currentUser.id }
+            val participantId = backStackEntry.arguments?.getString("participantId") ?: ""
+            val listingId = backStackEntry.arguments?.getString("listingId") ?: ""
+
+            if (participantId.isBlank() || listingId.isBlank()) {
+                LaunchedEffect(Unit) { navController.popBackStack() }
+                return@composable
+            }
+
             ConversationScreen(
-                participantId = backStackEntry.arguments?.getString("participantId") ?: return@composable,
-                listingId = backStackEntry.arguments?.getString("listingId") ?: return@composable,
+                participantId = participantId,
+                listingId = listingId,
                 viewModel = marketplaceViewModel,
                 chatViewModel = chatViewModel,
-                currentUserId = authViewModel.getUserId(),
+                currentUserId = effectiveUserId,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

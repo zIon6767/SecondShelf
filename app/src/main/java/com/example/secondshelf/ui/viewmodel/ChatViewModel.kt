@@ -84,28 +84,33 @@ class ChatViewModel : ViewModel() {
         }
 
         viewModelScope.launch {
-            // 1. Load history
-            val history = repository.loadMessages(myUserId, participantId, listingId)
-            _uiState.update { it.copy(messages = history) }
+            runCatching {
+                // 1. Load history
+                val history = repository.loadMessages(myUserId, participantId, listingId)
+                _uiState.update { it.copy(messages = history, error = null) }
 
-            // 2. Mark any unread messages from the participant as read
-            markRead()
+                // 2. Mark any unread messages from the participant as read
+                markRead()
 
-            // 3. Open Realtime channel
-            val channelName = buildChannelName(myUserId, participantId, listingId)
-            repository.enterChat(
-                scope = viewModelScope,
-                channelName = channelName,
-                myUserId = myUserId,
-                listingId = listingId,
-                onNewMessage = { msg -> handleIncomingMessage(msg) },
-                onMessageUpdated = { msg -> handleMessageUpdated(msg) },
-                onPresenceChange = { onlineIds ->
-                    _uiState.update {
-                        it.copy(isParticipantOnline = participantId in onlineIds)
+                // 3. Open Realtime channel
+                val channelName = buildChannelName(myUserId, participantId, listingId)
+                repository.enterChat(
+                    scope = viewModelScope,
+                    channelName = channelName,
+                    myUserId = myUserId,
+                    listingId = listingId,
+                    onNewMessage = { msg -> handleIncomingMessage(msg) },
+                    onMessageUpdated = { msg -> handleMessageUpdated(msg) },
+                    onPresenceChange = { onlineIds ->
+                        _uiState.update {
+                            it.copy(isParticipantOnline = participantId in onlineIds)
+                        }
                     }
-                }
-            )
+                )
+            }.onFailure { e ->
+                e.printStackTrace()
+                _uiState.update { it.copy(error = e.message ?: "Failed to connect to chat") }
+            }
         }
     }
 
@@ -118,7 +123,9 @@ class ChatViewModel : ViewModel() {
      */
     fun onResume() {
         if (myUserId.isBlank() || participantId.isBlank() || listingId.isBlank()) return
-        viewModelScope.launch { markRead() }
+        viewModelScope.launch {
+            runCatching { markRead() }
+        }
     }
 
     // ── Send ──────────────────────────────────────────────────────────────────
@@ -134,12 +141,16 @@ class ChatViewModel : ViewModel() {
 
         _uiState.update { it.copy(isSending = true, error = null) }
         viewModelScope.launch {
-            repository.sendMessage(
-                senderId = myUserId,
-                receiverId = participantId,
-                listingId = listingId,
-                content = trimmed
-            ).onFailure { e ->
+            runCatching {
+                repository.sendMessage(
+                    senderId = myUserId,
+                    receiverId = participantId,
+                    listingId = listingId,
+                    content = trimmed
+                ).onFailure { e ->
+                    _uiState.update { it.copy(error = e.message ?: "Failed to send message") }
+                }
+            }.onFailure { e ->
                 _uiState.update { it.copy(error = e.message ?: "Failed to send message") }
             }
             _uiState.update { it.copy(isSending = false) }
@@ -148,7 +159,7 @@ class ChatViewModel : ViewModel() {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private suspend fun markRead() {
+    private suspend fun markRead() = runCatching {
         repository.markMessagesRead(
             myId = myUserId,
             senderId = participantId,
@@ -163,6 +174,8 @@ class ChatViewModel : ViewModel() {
                 }
             )
         }
+    }.getOrElse { e ->
+        e.printStackTrace()
     }
 
     /**

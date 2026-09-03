@@ -2,6 +2,7 @@ package com.example.secondshelf.data
 
 import com.example.secondshelf.supabase
 import com.example.secondshelf.ui.model.ChatMessage
+import com.example.secondshelf.ui.model.Conversation
 import com.example.secondshelf.ui.model.PresenceState
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Order
@@ -39,23 +40,47 @@ class ChatRepository {
         supabase.postgrest.from("messages")
             .select {
                 filter {
-                    and {
-                        eq("listing_id", listingId)
-                        or {
-                            and {
-                                eq("sender_id", myId)
-                                eq("receiver_id", participantId)
-                            }
-                            and {
-                                eq("sender_id", participantId)
-                                eq("receiver_id", myId)
-                            }
-                        }
-                    }
+                    eq("listing_id", listingId)
+                    isIn("sender_id", listOf(myId, participantId))
+                    isIn("receiver_id", listOf(myId, participantId))
                 }
                 order("created_at", Order.ASCENDING)
             }
             .decodeList<ChatMessage>()
+    }.getOrElse { e ->
+        e.printStackTrace()
+        emptyList()
+    }
+
+    suspend fun loadConversations(myId: String): List<Conversation> = runCatching {
+        val messages = supabase.postgrest.from("messages")
+            .select {
+                filter {
+                    // 筛选 sender_id 或 receiver_id 是当前用户的所有消息
+                    or {
+                        eq("sender_id", myId)
+                        eq("receiver_id", myId)
+                    }
+                }
+                order(column = "created_at", order = Order.DESCENDING)
+            }
+            .decodeList<ChatMessage>()
+
+        messages.groupBy {
+            val otherId = if (it.senderId == myId) it.receiverId else it.senderId
+            "${it.listingId}_$otherId"
+        }.map { (key, msgs) ->
+            val latest = msgs.first()
+            val otherId = if (latest.senderId == myId) latest.receiverId else latest.senderId
+
+            Conversation(
+                id = "${latest.listingId}_$otherId",
+                participantId = otherId,
+                listingId = latest.listingId,
+                lastMessage = latest.content,
+                lastTimestamp = latest.createdAt ?: ""
+            )
+        }
     }.getOrDefault(emptyList())
 
     // ── Write ─────────────────────────────────────────────────────────────────
@@ -93,8 +118,6 @@ class ChatRepository {
             }
     }
 
-    // ── Realtime ──────────────────────────────────────────────────────────────
-
     suspend fun enterChat(
         scope: CoroutineScope,
         channelName: String,
@@ -103,7 +126,7 @@ class ChatRepository {
         onNewMessage: suspend (ChatMessage) -> Unit,
         onMessageUpdated: suspend (ChatMessage) -> Unit,
         onPresenceChange: (onlineUserIds: Set<String>) -> Unit
-    ) {
+    ) = runCatching {
         leaveChat()
 
         val ch = supabase.realtime.channel(channelName)
@@ -138,8 +161,13 @@ class ChatRepository {
                 onPresenceChange(onlineIds)
             }.launchIn(scope)
 
-        ch.subscribe(blockUntilSubscribed = true)
-        ch.track(PresenceState(userId = myUserId))
+        // Asynchronously subscribe without throwing fatal crash on socket error
+        runCatching {
+            ch.subscribe(blockUntilSubscribed = false)
+            ch.track(PresenceState(userId = myUserId))
+        }
+    }.getOrElse { e ->
+        e.printStackTrace()
     }
 
     suspend fun leaveChat() {

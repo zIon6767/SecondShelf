@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.example.secondshelf.ui.model.formatMessageTime
 import com.example.secondshelf.ui.model.getSellerName
 import com.example.secondshelf.ui.model.getUserById
 import com.example.secondshelf.ui.viewmodel.ChatViewModel
@@ -36,7 +37,13 @@ fun MessagesScreen(
     onConversationClick: (participantId: String, listingId: String) -> Unit
 ) {
     val conversations = viewModel.conversations
+    val isLoading = viewModel.isLoadingConversations
     val primary = MaterialTheme.colorScheme.primary
+
+    // Refresh from Supabase every time the screen enters composition
+    LaunchedEffect(Unit) {
+        viewModel.refreshConversations()
+    }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
 
@@ -89,15 +96,23 @@ fun MessagesScreen(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f), thickness = 1.dp)
 
-        if (conversations.isEmpty()) {
+        // ── Loading indicator ─────────────────────────────────────────────────
+        if (isLoading) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                color = primary
+            )
+        }
+
+        if (conversations.isEmpty() && !isLoading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.Chat, contentDescription = null, tint = Color(0xFFD1D5DB), modifier = Modifier.size(64.dp))
                     Spacer(Modifier.height(12.dp))
-                    Text("No messages yet", color = MaterialTheme.colorScheme.secondary)
+                    Text("Tap to enter conversation", color = MaterialTheme.colorScheme.secondary)
                 }
             }
-        } else {
+        } else if (!isLoading || conversations.isNotEmpty()) {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(conversations) { conv ->
                     Surface(
@@ -109,18 +124,58 @@ fun MessagesScreen(
                         color = MaterialTheme.colorScheme.surface
                     ) {
                         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            // Avatar: try real name first, fallback to first char of UUID
+                            val displayName = getSellerName(conv.participantId)
+                            val avatarLetter = if (displayName != "Unknown Seller") {
+                                displayName.first().uppercaseChar().toString()
+                            } else {
+                                conv.participantId.first().uppercaseChar().toString()
+                            }
                             Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(48.dp)) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Text(conv.participantId.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text(avatarLetter, color = Color.White, fontWeight = FontWeight.Bold)
                                 }
                             }
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(getSellerName(conv.participantId), fontWeight = FontWeight.SemiBold)
-                                Text(conv.lastMessage, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    if (displayName != "Unknown Seller") displayName else conv.participantId.take(8) + "…",
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    conv.lastMessage.ifBlank { "Tap to enter conversation" },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
-                            if (conv.unreadCount > 0) {
-                                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(8.dp)) {}
+                            Column(horizontalAlignment = Alignment.End) {
+                                // Show formatted timestamp if available
+                                if (conv.lastTimestamp.isNotBlank()) {
+                                    Text(
+                                        formatMessageTime(conv.lastTimestamp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
+                                }
+                                if (conv.unreadCount > 0) {
+                                    Spacer(Modifier.height(4.dp))
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text(
+                                                conv.unreadCount.coerceAtMost(99).toString(),
+                                                color = Color.White,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -145,14 +200,26 @@ fun ConversationScreen(
     val listState = rememberLazyListState()
 
     // ── Initialise chat on first composition ──────────────────────────────────
-    LaunchedEffect(participantId, listingId) {
-        viewModel.markConversationRead(participantId, listingId) // keep conversation list in sync
-        chatViewModel.enterChat(
-            myUserId = currentUserId,
-            participantId = participantId,
-            listingId = listingId,
-            participantName = getSellerName(participantId)
-        )
+    LaunchedEffect(participantId, listingId, currentUserId) {
+        if (participantId.isBlank() || listingId.isBlank()) {
+            onNavigateBack()
+            return@LaunchedEffect
+        }
+        runCatching {
+            viewModel.markConversationRead(participantId, listingId) // keep conversation list in sync
+            viewModel.upsertConversation(                           // ensure Messages list shows this chat
+                participantId = participantId,
+                listingId = listingId
+            )
+            chatViewModel.enterChat(
+                myUserId = currentUserId.ifBlank { "user-current" },
+                participantId = participantId,
+                listingId = listingId,
+                participantName = getSellerName(participantId)
+            )
+        }.onFailure { e ->
+            e.printStackTrace()
+        }
     }
 
     // ── Scroll to bottom when messages update ─────────────────────────────────
@@ -327,10 +394,7 @@ fun ConversationScreen(
                                     )
                                     // Timestamp
                                     val timeDisplay = remember(msg.createdAt) {
-                                        runCatching {
-                                            val raw = msg.createdAt.take(16).replace("T", " ")
-                                            raw.substringAfter(" ") // HH:mm
-                                        }.getOrDefault(msg.createdAt.take(5))
+                                        formatMessageTime(msg.createdAt)
                                     }
                                     Text(
                                         timeDisplay,
