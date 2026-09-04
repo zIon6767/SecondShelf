@@ -105,34 +105,7 @@ class MarketplaceViewModel(
     var marketplaceError by mutableStateOf<String?>(null)
         private set
 
-    var reviews by mutableStateOf<List<Review>>(
-        listOf(
-            Review(
-                id = "rev-1",
-                authorId = "user-2",
-                authorName = "Sarah Lee",
-                authorAvatarInitial = "S",
-                targetUserId = "user-current",
-                listingTitle = "Calculus 9th Edition",
-                rating = 5,
-                comment = "Super fast response and punctual during meetup! Book condition was great.",
-                tags = listOf("Punctual", "Item as Described", "Friendly"),
-                timeAgo = "2 days ago"
-            ),
-            Review(
-                id = "rev-2",
-                authorId = "user-3",
-                authorName = "Marcus Wong",
-                authorAvatarInitial = "M",
-                targetUserId = "user-current",
-                listingTitle = "Scientific Calculator",
-                rating = 5,
-                comment = "Smooth transaction at library lobby. Highly recommended seller!",
-                tags = listOf("Fast Reply", "Friendly"),
-                timeAgo = "1 week ago"
-            )
-        )
-    )
+    var reviews by mutableStateOf<List<Review>>(emptyList())
         private set
 
     var notifications by mutableStateOf(initialNotifications)
@@ -722,13 +695,20 @@ class MarketplaceViewModel(
         listingTitle: String,
         rating: Int,
         comment: String,
-        tags: List<String> = emptyList()
+        tags: List<String> = emptyList(),
+        authorName: String? = null,
+        authorAvatarInitial: String? = null
     ) {
+        val resolvedAuthorName = if (!authorName.isNullOrBlank()) authorName.trim() else if (currentUser.name.isNotBlank()) currentUser.name else "Student"
+        val resolvedInitial = if (!authorAvatarInitial.isNullOrBlank()) authorAvatarInitial.trim().uppercase()
+            else if (!authorName.isNullOrBlank()) authorName.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "S"
+            else currentUser.avatarInitial
+
         val newReview = Review(
             id = "rev-${UUID.randomUUID().toString().take(8)}",
-            authorId = currentUser.id,
-            authorName = if (currentUser.name.isNotBlank()) currentUser.name else "Student",
-            authorAvatarInitial = currentUser.avatarInitial,
+            authorId = currentUser.id.ifBlank { "user-${UUID.randomUUID().toString().take(6)}" },
+            authorName = resolvedAuthorName,
+            authorAvatarInitial = resolvedInitial,
             targetUserId = targetUserId,
             listingTitle = listingTitle,
             rating = rating.coerceIn(1, 5),
@@ -761,17 +741,9 @@ class MarketplaceViewModel(
         }
     }
 
-    fun createHandoffToken(
-        listingId: String,
-        buyerId: String,
-        sellerId: String,
-        onTokenReady: (String) -> Unit
-    ) {
-        viewModelScope.launch {
-            val transactionRepo = com.example.secondshelf.data.TransactionRepository(supabase)
-            val token = transactionRepo.createHandoff(listingId, buyerId, sellerId) ?: listingId
-            onTokenReady(token)
-        }
+    fun deleteReview(reviewId: String) {
+        reviews = reviews.filter { it.id != reviewId }
+        showToast("Review removed")
     }
 
     fun clearAllUserData() {

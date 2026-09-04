@@ -6,8 +6,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
@@ -235,3 +237,180 @@ private fun TagChip(
         )
     }
 }
+
+@Composable
+fun ManualCreateReviewDialog(
+    onDismiss: () -> Unit,
+    onSubmit: (reviewerName: String, listingTitle: String, rating: Int, comment: String, tags: List<String>) -> Unit
+) {
+    var reviewerName by remember { mutableStateOf("") }
+    var listingTitle by remember { mutableStateOf("") }
+    var selectedRating by remember { mutableIntStateOf(5) }
+    var comment by remember { mutableStateOf("") }
+    var selectedTags by remember { mutableStateOf(setOf<String>()) }
+
+    val quickTags = listOf(
+        "⚡ Fast Response",
+        "🤝 Punctual Meetup",
+        "📦 Item as Described",
+        "😊 Friendly",
+        "💬 Great Communication"
+    )
+
+    val ratingLabel = when (selectedRating) {
+        1 -> "Poor"
+        2 -> "Fair"
+        3 -> "Good"
+        4 -> "Very Good"
+        5 -> "Excellent"
+        else -> ""
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(22.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Header & Close
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Create Student Review",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.secondary)
+                    }
+                }
+
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Add a feedback review to display on this profile.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.align(Alignment.Start)
+                )
+
+                Spacer(Modifier.height(14.dp))
+
+                // Reviewer Name input
+                OutlinedTextField(
+                    value = reviewerName,
+                    onValueChange = { reviewerName = it },
+                    label = { Text("Reviewer Name") },
+                    placeholder = { Text("e.g. Sarah Lee / Marcus Wong") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                // Listing Title input
+                OutlinedTextField(
+                    value = listingTitle,
+                    onValueChange = { listingTitle = it },
+                    label = { Text("Item Traded (Optional)") },
+                    placeholder = { Text("e.g. Calculus 9th Edition") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                // Interactive 5-Star Row
+                Text(
+                    text = "Rating: $ratingLabel ($selectedRating / 5)",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = GoldStar
+                )
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    for (i in 1..5) {
+                        IconButton(
+                            onClick = { selectedRating = i },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (i <= selectedRating) Icons.Default.Star else Icons.Outlined.StarOutline,
+                                contentDescription = "$i Stars",
+                                tint = if (i <= selectedRating) GoldStar else Color(0xFFD1D5DB),
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Quick Tags
+                Text(
+                    text = "Tags",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.align(Alignment.Start)
+                )
+                Spacer(Modifier.height(6.dp))
+                FlowTagRow(
+                    tags = quickTags,
+                    selectedTags = selectedTags,
+                    onToggleTag = { tag ->
+                        selectedTags = if (selectedTags.contains(tag)) selectedTags - tag else selectedTags + tag
+                    }
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                // Written Feedback Field
+                OutlinedTextField(
+                    value = comment,
+                    onValueChange = { comment = it },
+                    label = { Text("Review Feedback") },
+                    placeholder = { Text("Write feedback comments...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    minLines = 3,
+                    maxLines = 4
+                )
+
+                Spacer(Modifier.height(18.dp))
+
+                // Submit Button
+                Button(
+                    onClick = {
+                        val finalAuthor = reviewerName.ifBlank { "Student Peer" }
+                        val finalItem = listingTitle.ifBlank { "Campus Deal" }
+                        val finalComment = comment.ifBlank { "Great trade experience!" }
+                        onSubmit(finalAuthor, finalItem, selectedRating, finalComment, selectedTags.toList())
+                        onDismiss()
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                ) {
+                    Text("Add Review to Profile", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                }
+            }
+        }
+    }
+}
+
