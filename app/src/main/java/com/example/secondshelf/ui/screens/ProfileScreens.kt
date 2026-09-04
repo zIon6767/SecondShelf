@@ -24,30 +24,48 @@ import androidx.compose.ui.unit.sp
 import com.example.secondshelf.ui.components.ListingGrid
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SavedItemsScreen
+// Shows all listings the user has bookmarked/saved.
+// Data comes from MarketplaceViewModel — no dummy data used.
+// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun SavedItemsScreen(
     viewModel: MarketplaceViewModel,
     onNavigateBack: () -> Unit,
     onListingClick: (String) -> Unit
 ) {
+    // Get the list of saved listings from the ViewModel
     val saved = viewModel.getSavedListings()
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         TopBar(
             title = "Saved Items",
-            subtitle = if (saved.isEmpty()) "0 items" else "${saved.size} item${if (saved.size > 1) "s" else ""}",
+            subtitle = if (saved.isEmpty()) "0 items"
+                       else "${saved.size} item${if (saved.size > 1) "s" else ""}",
             onBack = onNavigateBack
         )
 
         if (saved.isEmpty()) {
+            // Empty state — show a friendly message
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.FavoriteBorder, contentDescription = null, tint = Color(0xFFD1D5DB), modifier = Modifier.size(64.dp))
+                    Icon(
+                        Icons.Default.FavoriteBorder,
+                        contentDescription = null,
+                        tint = Color(0xFFD1D5DB),
+                        modifier = Modifier.size(64.dp)
+                    )
                     Spacer(Modifier.height(12.dp))
-                    Text("No saved items", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
+                    Text(
+                        "No saved items",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
                 }
             }
         } else {
+            // Show the saved listings in a grid
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 ListingGrid(
                     listings = saved,
@@ -61,27 +79,36 @@ fun SavedItemsScreen(
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// EditProfileScreen
+// Allows the user to update their display name, campus, bio, and profile photo.
+// Changes are saved to Supabase via AuthViewModel — no dummy data used.
+// ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileScreen(
     viewModel: MarketplaceViewModel,
-    authViewModel: com.example.secondshelf.ui.AuthViewModel,
+    authViewModel: com.example.secondshelf.ui.AuthViewModel? = null,    // null only in Preview mode
     onNavigateBack: () -> Unit
 ) {
-    val user = viewModel.currentUser
+    // ── Get current user info from the ViewModel ─────────────────────────────
+    val user               = viewModel.currentUser
     val daysUntilNameChange = viewModel.getDaysUntilNextNameChange()
-    val canChangeName = daysUntilNameChange == 0
+    val canChangeName      = daysUntilNameChange == 0   // 14-day cooldown rule
 
-    var name by remember { mutableStateOf(user.name) }
+    // ── State: editable fields ───────────────────────────────────────────────
+    var name           by remember { mutableStateOf(user.name) }
     var selectedCampus by remember { mutableStateOf(user.campus.ifBlank { "KL Main Campus" }) }
-    var bio by remember { mutableStateOf(user.bio.ifBlank { "TAR UMT Student" }) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var isSaving by remember { mutableStateOf(false) }
+    var bio            by remember { mutableStateOf(user.bio.ifBlank { "TAR UMT Student" }) }
+    var error          by remember { mutableStateOf<String?>(null) }
+    var isSaving       by remember { mutableStateOf(false) }
 
-    val avatarUrl = authViewModel.cachedAvatarUrl.ifBlank { user.avatarUrl }
-    val isUploading = authViewModel.isUploadingAvatar
-    val uploadError = authViewModel.avatarUploadError
+    // ── Avatar / photo upload state ──────────────────────────────────────────
+    val avatarUrl   = authViewModel?.cachedAvatarUrl?.ifBlank { user.avatarUrl } ?: user.avatarUrl
+    val isUploading = authViewModel?.isUploadingAvatar ?: false
+    val uploadError = authViewModel?.avatarUploadError
 
+    // ── Campus options ───────────────────────────────────────────────────────
     val campuses = remember {
         listOf(
             "KL Main Campus",
@@ -93,13 +120,14 @@ fun EditProfileScreen(
         )
     }
 
-    // Gallery image picker
+    // ── Image picker — opens gallery when user taps profile photo ────────────
     val imagePicker = rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
     ) { uri: android.net.Uri? ->
-        uri?.let { authViewModel.uploadAvatar(it) }
+        uri?.let { authViewModel?.uploadAvatar(it) }
     }
 
+    // ── Screen Layout ────────────────────────────────────────────────────────
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         TopBar(title = "Edit Profile", onBack = onNavigateBack)
 
@@ -112,14 +140,14 @@ fun EditProfileScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
-            // ── Avatar with prominent camera badge ────────────────────────────
+            // ── Profile Photo with camera badge ──────────────────────────────
             Box(
                 modifier = Modifier
                     .size(108.dp)
                     .clickable { imagePicker.launch("image/*") },
                 contentAlignment = Alignment.Center
             ) {
-                // Circular Avatar
+                // Circular avatar (loads from Supabase URL, or shows first letter)
                 Surface(
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.primary,
@@ -150,7 +178,7 @@ fun EditProfileScreen(
                     }
                 }
 
-                // Loading overlay while uploading
+                // Loading spinner overlay while uploading
                 if (isUploading) {
                     Surface(
                         color = Color.Black.copy(alpha = 0.5f),
@@ -167,11 +195,10 @@ fun EditProfileScreen(
                     }
                 }
 
-                // Floating Camera Badge (bottom-right of avatar)
+                // Camera icon badge (bottom-right corner of avatar)
                 if (!isUploading) {
                     Box(
-                        modifier = Modifier
-                            .size(104.dp),
+                        modifier = Modifier.size(104.dp),
                         contentAlignment = Alignment.BottomEnd
                     ) {
                         Surface(
@@ -201,7 +228,7 @@ fun EditProfileScreen(
                 color = MaterialTheme.colorScheme.primary
             )
 
-            // Upload error banner
+            // Upload error message (if photo upload fails)
             uploadError?.let {
                 Surface(
                     color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
@@ -219,7 +246,7 @@ fun EditProfileScreen(
 
             Spacer(Modifier.height(4.dp))
 
-            // ── Read-Only Email Identity Card ─────────────────────────────────
+            // ── Student Email (read-only, cannot be changed) ──────────────────
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     "Student Email (Account Identity)",
@@ -230,7 +257,9 @@ fun EditProfileScreen(
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -250,8 +279,11 @@ fun EditProfileScreen(
                             )
                             Spacer(Modifier.width(10.dp))
                             Column {
+                                // Email pulled from Supabase session — not hardcoded
                                 Text(
-                                    text = user.email.ifBlank { authViewModel.getUserEmail().ifBlank { "Not specified" } },
+                                    text = user.email.ifBlank {
+                                        authViewModel?.getUserEmail()?.ifBlank { "Not specified" } ?: "Not specified"
+                                    },
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -264,6 +296,7 @@ fun EditProfileScreen(
                                 )
                             }
                         }
+                        // Verified badge
                         Surface(
                             shape = RoundedCornerShape(16.dp),
                             color = Color(0xFF34C759).copy(alpha = 0.12f)
@@ -298,7 +331,7 @@ fun EditProfileScreen(
                 )
             }
 
-            // ── Display Name / Username Field (with 14-day cooldown) ──────────
+            // ── Display Name field (with 14-day cooldown) ─────────────────────
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     "Display Name / Username *",
@@ -313,9 +346,10 @@ fun EditProfileScreen(
                         error = null
                     },
                     leadingIcon = {
-                        Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Default.Person, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary)
                     },
-                    enabled = canChangeName,
+                    enabled = canChangeName,    // locked for 14 days after last change
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true
@@ -338,14 +372,16 @@ fun EditProfileScreen(
                 }
             }
 
-            // ── Read-Only University Card ─────────────────────────────────────
+            // ── University (read-only, always TAR UMT) ────────────────────────
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("University", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(6.dp))
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -376,7 +412,7 @@ fun EditProfileScreen(
                 }
             }
 
-            // ── Campus Dropdown Selector ──────────────────────────────────────
+            // ── Campus Dropdown ───────────────────────────────────────────────
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("Campus Branch *", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(6.dp))
@@ -391,7 +427,8 @@ fun EditProfileScreen(
                         onValueChange = {},
                         readOnly = true,
                         leadingIcon = {
-                            Icon(Icons.Default.Place, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Default.Place, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary)
                         },
                         trailingIcon = {
                             ExposedDropdownMenuDefaults.TrailingIcon(expanded = campusMenuExpanded)
@@ -418,7 +455,7 @@ fun EditProfileScreen(
                 }
             }
 
-            // ── Bio / About Me Field ──────────────────────────────────────────
+            // ── Bio / About Me ────────────────────────────────────────────────
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -434,7 +471,8 @@ fun EditProfileScreen(
                     onValueChange = { if (it.length <= 120) bio = it },
                     placeholder = { Text("e.g. Year 2 CS student | Buying & selling textbooks") },
                     leadingIcon = {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Default.Info, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary)
                     },
                     minLines = 2,
                     maxLines = 3,
@@ -443,7 +481,7 @@ fun EditProfileScreen(
                 )
             }
 
-            // Error banner
+            // Error message banner
             error?.let {
                 Surface(
                     color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
@@ -462,7 +500,7 @@ fun EditProfileScreen(
 
             Spacer(Modifier.height(8.dp))
 
-            // Save Button
+            // Save button — saves changes to Supabase via AuthViewModel
             Button(
                 onClick = {
                     if (name.isBlank()) {
@@ -470,19 +508,23 @@ fun EditProfileScreen(
                         return@Button
                     }
                     isSaving = true
-                    val currentAvatar = authViewModel.cachedAvatarUrl.ifBlank { user.avatarUrl }
+                    val currentAvatar = authViewModel?.cachedAvatarUrl?.ifBlank { user.avatarUrl } ?: user.avatarUrl
                     val result = viewModel.updateProfile(
-                        name = name,
-                        campus = selectedCampus,
-                        bio = bio,
+                        name      = name,
+                        campus    = selectedCampus,
+                        bio       = bio,
                         avatarUrl = currentAvatar
                     )
                     if (result == null) {
-                        // Persist to session and Supabase user metadata
-                        authViewModel.updateUserProfile(
-                            fullName = name.trim(),
-                            campus = selectedCampus
-                        ) {
+                        if (authViewModel != null) {
+                            authViewModel.updateUserProfile(
+                                fullName = name.trim(),
+                                campus   = selectedCampus
+                            ) {
+                                isSaving = false
+                                onNavigateBack()
+                            }
+                        } else {
                             isSaving = false
                             onNavigateBack()
                         }
@@ -515,6 +557,11 @@ fun EditProfileScreen(
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TopBar
+// A reusable top navigation bar with a back button, title, and optional subtitle.
+// Used by EditProfileScreen, SavedItemsScreen, and other sub-screens.
+// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun TopBar(
     title: String,
@@ -530,7 +577,7 @@ fun TopBar(
             .padding(horizontal = 20.dp)
             .padding(top = 12.dp, bottom = 16.dp)
     ) {
-        // Back button row
+        // Back button
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
@@ -555,7 +602,7 @@ fun TopBar(
 
         Spacer(Modifier.height(12.dp))
 
-        // Title + subtitle row
+        // Page title and optional subtitle
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Bottom,
@@ -581,4 +628,30 @@ fun TopBar(
         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f),
         thickness = 1.dp
     )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Previews — show screens in Android Studio Design panel
+// ─────────────────────────────────────────────────────────────────────────────
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun EditProfileScreenPreview() {
+    com.example.secondshelf.ui.theme.SecondShelfTheme {
+        EditProfileScreen(
+            viewModel = MarketplaceViewModel(),
+            onNavigateBack = {}
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun SavedItemsScreenPreview() {
+    com.example.secondshelf.ui.theme.SecondShelfTheme {
+        SavedItemsScreen(
+            viewModel = MarketplaceViewModel(),
+            onNavigateBack = {},
+            onListingClick = {}
+        )
+    }
 }

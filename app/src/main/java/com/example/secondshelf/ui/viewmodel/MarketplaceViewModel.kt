@@ -152,6 +152,17 @@ class MarketplaceViewModel(
     var toastMessage by mutableStateOf<String?>(null)
         private set
 
+    private var _isDarkMode = mutableStateOf(false)
+    val isDarkMode: Boolean get() = _isDarkMode.value
+
+    fun setDarkMode(enabled: Boolean) {
+        _isDarkMode.value = enabled
+    }
+
+    fun toggleDarkMode() {
+        _isDarkMode.value = !_isDarkMode.value
+    }
+
     fun updateHomeCategory(category: Category) {
         homeCategory = category
     }

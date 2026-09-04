@@ -1,5 +1,6 @@
 package com.example.secondshelf.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -9,16 +10,19 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.secondshelf.ui.theme.SecondShelfTheme
+import com.example.secondshelf.utils.QrCodeUtils
 
 val PrimaryBlue = Color(0xFF007BFF)
 
@@ -31,6 +35,14 @@ fun PickupPassScreen(
     price: String = "RM 40",
     sellerName: String = "Ahmad Faris"
 ) {
+    //mock transaction token, FETCH FROM BACKEND LATER
+    val transactionToken = "SECURE_HANDOFF_TOKEN_XYZ_123"
+
+    //generates the QR bitmap once and remembers it
+    val qrBitmap = remember(transactionToken) {
+        QrCodeUtils.generateQrBitmap(transactionToken)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -74,7 +86,7 @@ fun PickupPassScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            //qr code placeholder box
+            //qr code box
             Box(
                 modifier = Modifier
                     .size(260.dp)
@@ -83,20 +95,29 @@ fun PickupPassScreen(
                     .border(3.dp, PrimaryBlue, RoundedCornerShape(24.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.QrCode2,
-                        contentDescription = "QR Code Placeholder",
-                        modifier = Modifier.size(120.dp),
-                        tint = Color.LightGray
+                if (qrBitmap != null) {
+                    Image(
+                        bitmap = qrBitmap.asImageBitmap(),
+                        contentDescription = "Transaction QR Code",
+                        modifier = Modifier.size(220.dp) // Slightly smaller to leave a margin
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Encrypted QR loads here",
-                        color = Color.Gray,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                } else {
+                    //fallback in case generation fails
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.QrCode2,
+                            contentDescription = "QR Code Placeholder",
+                            modifier = Modifier.size(120.dp),
+                            tint = Color.LightGray
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Failed to load QR",
+                            color = Color.Red,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
 
@@ -172,6 +193,3 @@ fun PickupPassScreenPreview() {
         )
     }
 }
-
-
-

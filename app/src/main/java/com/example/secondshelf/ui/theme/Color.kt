@@ -19,3 +19,12 @@ val BorderGray = Color(0xFFE5E7EB)
 val SuccessGreen = Color(0xFF34C759)
 val WarningOrange = Color(0xFFFF9500)
 val DangerRed = Color(0xFFFF3B30)
+
+// Dark Theme Neutrals
+val AppBackgroundDark = Color(0xFF121212)
+val SurfaceDark = Color(0xFF1E1E1E)
+val SurfaceDarkElevated = Color(0xFF2A2A2D)
+val TextMainDark = Color(0xFFF9FAFB)
+val TextSecondaryDark = Color(0xFF9CA3AF)
+val BorderDark = Color(0xFF38383A)
+

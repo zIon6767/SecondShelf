@@ -303,3 +303,19 @@ private fun DetailRow(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
         Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
     }
 }
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun ListingDetailScreenPreview() {
+    com.example.secondshelf.ui.theme.SecondShelfTheme {
+        ListingDetailScreen(
+            listingId = "listing-1",
+            viewModel = MarketplaceViewModel(),
+            onNavigateBack = {},
+            onContactSeller = { _, _ -> },
+            onViewSeller = {},
+            onEditListing = {}
+        )
+    }
+}
+
