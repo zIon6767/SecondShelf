@@ -21,7 +21,6 @@ import com.example.secondshelf.ui.model.Category
 import com.example.secondshelf.ui.model.Condition
 import com.example.secondshelf.ui.model.Listing
 import com.example.secondshelf.ui.model.formatPrice
-import com.example.secondshelf.ui.model.getSellerName
 
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
@@ -119,7 +118,11 @@ fun ListingCard(
                         )
                         Spacer(modifier = Modifier.width(3.dp))
                         Text(
-                            getSellerName(listing.sellerId),
+                            if (listing.isOwnedByCurrentUser) {
+                                "You (${listing.sellerName})"
+                            } else {
+                                listing.sellerName
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.secondary,
                             maxLines = 1,

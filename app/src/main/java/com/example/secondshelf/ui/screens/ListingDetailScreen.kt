@@ -21,9 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.secondshelf.ui.components.ConditionBadge
+import com.example.secondshelf.ui.model.formatListingDate
 import com.example.secondshelf.ui.model.formatPrice
-import com.example.secondshelf.ui.model.getSellerName
-import com.example.secondshelf.ui.model.getUserById
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,7 +49,6 @@ fun ListingDetailScreen(
         return
     }
 
-    val seller = getUserById(listing.sellerId)
     val isFavorite = viewModel.isFavorite(listing.id)
     val isOwnListing = listing.sellerId == viewModel.currentUser.id
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -174,7 +172,7 @@ fun ListingDetailScreen(
 
                 Spacer(Modifier.height(20.dp))
                 DetailRow(Icons.Default.LocationOn, "Location", listing.location)
-                DetailRow(Icons.Default.CalendarToday, "Posted", listing.createdAt)
+                DetailRow(Icons.Default.CalendarToday, "Posted", formatListingDate(listing.createdAt))
 
                 Spacer(Modifier.height(20.dp))
                 Text("Seller", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -194,18 +192,35 @@ fun ListingDetailScreen(
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(44.dp)
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    seller?.avatarInitial ?: "?",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold
+                            if (listing.sellerAvatarUrl.isNotBlank()) {
+                                AsyncImage(
+                                    model = listing.sellerAvatarUrl,
+                                    contentDescription = "Seller profile photo",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
                                 )
+                            } else {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        listing.sellerName.firstOrNull()
+                                            ?.uppercaseChar()?.toString() ?: "?",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(getSellerName(listing.sellerId), fontWeight = FontWeight.SemiBold)
-                            Text(seller?.campus ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                            Text(
+                                if (isOwnListing) "You (${listing.sellerName})" else listing.sellerName,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                listing.sellerCampus,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
                         }
                         Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFFD1D5DB))
                     }

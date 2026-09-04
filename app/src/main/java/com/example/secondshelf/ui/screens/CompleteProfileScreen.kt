@@ -9,7 +9,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.School
@@ -20,7 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,35 +29,32 @@ import com.example.secondshelf.ui.AuthUiState
 import com.example.secondshelf.ui.AuthViewModel
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CompleteProfileScreen
-// First-time setup after sign-in: user picks a display name, campus, and phone.
-// Data is saved to Supabase via AuthViewModel — no dummy data used.
-// ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CompleteProfileScreen(
-    authViewModel: AuthViewModel? = null,            // null only in Preview mode
-    marketplaceViewModel: MarketplaceViewModel? = null,
-    onNavigateToHome: () -> Unit
+    authViewModel: AuthViewModel,
+    marketplaceViewModel: MarketplaceViewModel,
+    onNavigateToHome: () -> Unit,
+    onNavigateBack: (() -> Unit)? = null
 ) {
-    // ── Pre-fill name from auth session if available ─────────────────────────
-    val initialName = authViewModel?.getUserFullName()?.let {
+    // Intercept system back button / gesture when onNavigateBack is provided
+    BackHandler(enabled = onNavigateBack != null) {
+        onNavigateBack?.invoke()
+    }
+
+    val initialName = authViewModel.getUserFullName().let {
         if (it == "User" || it == "Student" || it == "null") "" else it
-    } ?: ""
-    val email = authViewModel?.getUserEmail() ?: ""
+    }
+    val email = authViewModel.getUserEmail()
 
-    // ── State: user inputs ───────────────────────────────────────────────────
-    var fullName       by remember { mutableStateOf(initialName) }
+    var fullName by remember { mutableStateOf(initialName) }
     var selectedCampus by remember { mutableStateOf("KL Main Campus") }
-    var phone          by remember { mutableStateOf("") }
-    var errorText      by remember { mutableStateOf<String?>(null) }
+    var phone by remember { mutableStateOf("") }
+    var errorText by remember { mutableStateOf<String?>(null) }
 
-    // ── Observe profile update result from ViewModel ─────────────────────────
-    val uiState   = authViewModel?.uiState?.collectAsState()?.value ?: AuthUiState.Idle
+    val uiState by authViewModel.uiState.collectAsState()
     val isLoading = uiState is AuthUiState.Loading
 
-    // ── Campus options list ──────────────────────────────────────────────────
     val campuses = listOf(
         "KL Main Campus",
         "Penang Branch Campus",
@@ -66,7 +64,6 @@ fun CompleteProfileScreen(
         "Sabah Branch Campus"
     )
 
-    // ── Screen Layout ────────────────────────────────────────────────────────
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -74,6 +71,30 @@ fun CompleteProfileScreen(
             .imePadding(),
         contentAlignment = Alignment.Center
     ) {
+        // Back button positioned at the top-left
+        if (onNavigateBack != null) {
+            Surface(
+                onClick = onNavigateBack,
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
+                shadowElevation = 1.dp,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .statusBarsPadding()
+                    .padding(start = 20.dp, top = 16.dp)
+                    .size(40.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -83,8 +104,7 @@ fun CompleteProfileScreen(
                 .padding(horizontal = 24.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.Center
         ) {
-
-            // Header icon
+            // Header
             Surface(
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
@@ -104,7 +124,6 @@ fun CompleteProfileScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // Welcome text
             Text(
                 text = "Welcome to Second Shelf!",
                 style = MaterialTheme.typography.headlineSmall,
@@ -121,7 +140,7 @@ fun CompleteProfileScreen(
                     .align(Alignment.CenterHorizontally)
             )
 
-            // Error banner (shown when form validation fails)
+            // Error Banner
             AnimatedVisibility(visible = errorText != null) {
                 errorText?.let { err ->
                     Surface(
@@ -148,7 +167,7 @@ fun CompleteProfileScreen(
                 }
             }
 
-            // Show the logged-in email as read-only confirmation
+            // Google Email (read-only indicator)
             if (email.isNotBlank() && email != "user@example.com") {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
@@ -172,16 +191,14 @@ fun CompleteProfileScreen(
                 }
             }
 
-            // Display name input
+            // Full Name / Username Field
             Text("Username / Display Name *", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
             OutlinedTextField(
                 value = fullName,
                 onValueChange = { fullName = it; errorText = null },
                 placeholder = { Text("e.g. Alex Tan") },
-                leadingIcon = {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                },
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
@@ -189,7 +206,7 @@ fun CompleteProfileScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // Campus dropdown selector
+            // Campus Selector
             Text("Campus / Branch *", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
 
@@ -202,9 +219,7 @@ fun CompleteProfileScreen(
                     value = selectedCampus,
                     onValueChange = {},
                     readOnly = true,
-                    leadingIcon = {
-                        Icon(Icons.Default.School, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    },
+                    leadingIcon = { Icon(Icons.Default.School, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = campusMenuExpanded) },
                     modifier = Modifier
                         .menuAnchor()
@@ -229,7 +244,7 @@ fun CompleteProfileScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // Phone / WhatsApp input (optional)
+            // Phone Field
             Text("Phone / WhatsApp (Optional)", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
             val isPhoneInvalid = phone.isNotBlank() && (phone.length < 10 || !phone.startsWith("01"))
@@ -240,7 +255,7 @@ fun CompleteProfileScreen(
                     errorText = null
                 },
                 placeholder = { Text("e.g. 0123456789") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = androidx.compose.ui.text.input.ImeAction.Done),
                 isError = isPhoneInvalid,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -258,7 +273,7 @@ fun CompleteProfileScreen(
 
             Spacer(Modifier.height(28.dp))
 
-            // Submit button — saves profile to Supabase then goes to Home
+            // Submit Button
             Button(
                 onClick = {
                     if (fullName.trim().isBlank()) {
@@ -269,19 +284,16 @@ fun CompleteProfileScreen(
                         errorText = "Invalid phone number."
                         return@Button
                     }
-                    if (authViewModel != null) {
-                        authViewModel.updateUserProfile(
-                            fullName = fullName.trim(),
-                            campus   = selectedCampus
-                        ) {
-                            marketplaceViewModel?.syncAuthUser(
-                                name   = fullName.trim(),
-                                email  = email,
-                                campus = selectedCampus
-                            )
-                            onNavigateToHome()
-                        }
-                    } else {
+                    authViewModel.updateUserProfile(
+                        fullName = fullName.trim(),
+                        campus = selectedCampus
+                    ) {
+                        marketplaceViewModel.syncAuthUser(
+                            id = authViewModel.getUserId(),
+                            name = fullName.trim(),
+                            email = email,
+                            campus = selectedCampus
+                        )
                         onNavigateToHome()
                     }
                 },
@@ -306,18 +318,5 @@ fun CompleteProfileScreen(
                 }
             }
         }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Preview — shows the CompleteProfileScreen in Android Studio Design panel
-// ─────────────────────────────────────────────────────────────────────────────
-@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
-@Composable
-fun CompleteProfileScreenPreview() {
-    com.example.secondshelf.ui.theme.SecondShelfTheme {
-        CompleteProfileScreen(
-            onNavigateToHome = {}
-        )
     }
 }
