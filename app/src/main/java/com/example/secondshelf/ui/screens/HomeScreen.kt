@@ -56,7 +56,8 @@ fun HomeScreen(
     onNavigateToSaved: () -> Unit,
     onNavigateToMessages: () -> Unit,
     onNavigateToEditProfile: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onNavigateToScanner: () -> Unit //qr code testing remove later
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -157,7 +158,8 @@ fun HomeScreen(
                     onNavigateToNotifications = onNavigateToNotifications,
                     onNavigateToListing = onNavigateToListing,
                     onNavigateToCreateListing = onNavigateToCreateListing,
-                    onNavigateToProfile = { selectedTab = 3 }
+                    onNavigateToProfile = { selectedTab = 3 },
+                    onNavigateToScanner = onNavigateToScanner //qr code testing remove later
                 )
                 1 -> SavedTab(viewModel, onNavigateToListing, onNavigateToCreateListing)
                 2 -> ChatTab(viewModel, onNavigateToMessages)
@@ -422,7 +424,10 @@ private fun HomeTab(
     onNavigateToNotifications: () -> Unit,
     onNavigateToListing: (String) -> Unit,
     onNavigateToCreateListing: () -> Unit,
-    onNavigateToProfile: () -> Unit
+    onNavigateToProfile: () -> Unit,
+    //qr code testing remove later
+    onNavigateToScanner: () -> Unit
+    //---------------------------------------
 ) {
     val user = viewModel.currentUser
     val displayName = user.name.ifBlank { if (userName.isNotBlank() && userName != "User") userName else "Student" }
@@ -519,6 +524,25 @@ private fun HomeTab(
                     )
                 }
             }
+
+            //qr code testing remove laterrr
+            Spacer(Modifier.height(14.dp))
+            Button(
+                onClick = {
+                    onNavigateToScanner()
+                    // This directly triggers the route we defined in AppNavigation
+                    // Make sure you have "scanner_route" wired up in your NavGraph!
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+            ) {
+                Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = Color.White)
+                Spacer(Modifier.width(8.dp))
+                Text("TEST: Open QR Scanner", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+            // ---------------------------------
 
             Spacer(Modifier.height(18.dp))
 
@@ -1274,7 +1298,9 @@ fun HomeScreenPreview() {
             onNavigateToSaved = {},
             onNavigateToMessages = {},
             onNavigateToEditProfile = {},
-            onLogout = {}
+            onLogout = {},
+            //qr code testinfg remove llater
+            onNavigateToScanner = {}
         )
     }
 }

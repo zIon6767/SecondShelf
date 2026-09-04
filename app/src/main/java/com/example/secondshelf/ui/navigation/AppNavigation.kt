@@ -179,6 +179,12 @@ fun AppNavigation(
                 onNavigateToSaved = { navController.navigate("saved") },
                 onNavigateToMessages = { navController.navigate("messages") },
                 onNavigateToEditProfile = { navController.navigate("edit_profile") },
+
+                //qr code testing remove later
+                onNavigateToScanner = {
+                    navController.navigate("scanner_route") // <-- navController lives HERE!
+                },
+                //---------------------------------------------------------------
                 onLogout = {
                     authViewModel.signOut()
                     navController.navigate("login") { popUpTo(0) { inclusive = true } }

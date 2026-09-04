@@ -240,8 +240,24 @@ fun ListingDetailScreen(
                 ) {
                     Text("TEST: Generate QR", color = Color.White)
                 }
-                //-----------------------------------------------
             }
+            if (showTestQr) {
+                androidx.compose.ui.window.Dialog(
+                    onDismissRequest = { showTestQr = false },
+                    properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+                ) {
+                    Surface(modifier = Modifier.fillMaxSize()) {
+                        QrScreen(
+                            onNavigateBack = { showTestQr = false },
+                            transactionToken = "test123", // Matches your Supabase row
+                            itemName = listing.title,
+                            price = formatPrice(listing.price),
+                            sellerName = listing.sellerName
+                        )
+                    }
+                }
+            }
+            //---------------------------------------------------------
         }
 
         Surface(shadowElevation = 8.dp, color = MaterialTheme.colorScheme.background) {
@@ -304,25 +320,6 @@ fun ListingDetailScreen(
                 }
             }
         }
-
-        //QR CODE TESITNG REMOVE LATER
-        if (showTestQr) {
-            androidx.compose.ui.window.Dialog(
-                onDismissRequest = { showTestQr = false },
-                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
-            ) {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    QrScreen(
-                        onNavigateBack = { showTestQr = false },
-                        transactionToken = listing.title, // Passes the listing name to the QR generator
-                        itemName = listing.title,
-                        price = formatPrice(listing.price), // Using your existing formatting function
-                        sellerName = listing.sellerName
-                    )
-                }
-            }
-        }
-        //----------------------------------------------------------------------------------------------------------
     }
 }
 
