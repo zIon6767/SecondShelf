@@ -129,8 +129,8 @@ as $$
           or exists (
               select 1
               from public.messages m
-              where (m.sender_id = auth.uid() and m.receiver_id = p_user_id)
-                 or (m.receiver_id = auth.uid() and m.sender_id = p_user_id)
+where (m.sender_id::text = auth.uid()::text and m.receiver_id::text = p_user_id::text)
+   or (m.receiver_id::text = auth.uid()::text and m.sender_id::text = p_user_id::text)
           )
       );
 $$;
