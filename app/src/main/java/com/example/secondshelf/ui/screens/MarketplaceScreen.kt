@@ -180,7 +180,7 @@ private fun MarketplaceFiltersPanel(
 fun MarketplaceScreenPreview() {
     com.example.secondshelf.ui.theme.SecondShelfTheme {
         MarketplaceScreen(
-            viewModel = MarketplaceViewModel(),
+            viewModel = MarketplaceViewModel(android.app.Application()),
             onNavigateBack = {},
             onListingClick = {}
         )

@@ -24,7 +24,9 @@ data class ChatUiState(
     val isParticipantOnline: Boolean = false,
     val participantName: String = "",
     val isSending: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    /** True once the current user has blocked this participant. */
+    val isBlocked: Boolean = false
 )
 
 /**
@@ -66,14 +68,19 @@ class ChatViewModel : ViewModel() {
         myUserId: String,
         participantId: String,
         listingId: String,
-        participantName: String = ""
+        participantName: String = "",
+        isParticipantBlocked: Boolean = false
     ) {
         // Avoid re-initialising for the same conversation
         if (
             this.myUserId == myUserId &&
             this.participantId == participantId &&
             this.listingId == listingId
-        ) return
+        ) {
+            // Still update blocked state if it changed (e.g. user blocked mid-session)
+            _uiState.update { it.copy(isBlocked = isParticipantBlocked) }
+            return
+        }
 
         this.myUserId = myUserId
         this.participantId = participantId
@@ -82,31 +89,45 @@ class ChatViewModel : ViewModel() {
         if (participantName.isNotBlank()) {
             _uiState.update { it.copy(participantName = participantName) }
         }
+        _uiState.update { it.copy(isBlocked = isParticipantBlocked) }
 
         viewModelScope.launch {
-            // 1. Load history
-            val history = repository.loadMessages(myUserId, participantId, listingId)
-            _uiState.update { it.copy(messages = history) }
+            runCatching {
+                // 1. Load history
+                val history = repository.loadMessages(myUserId, participantId, listingId)
+                _uiState.update { it.copy(messages = history, error = null) }
 
-            // 2. Mark any unread messages from the participant as read
-            markRead()
+                // 2. Mark any unread messages from the participant as read
+                markRead()
 
-            // 3. Open Realtime channel
-            val channelName = buildChannelName(myUserId, participantId, listingId)
-            repository.enterChat(
-                scope = viewModelScope,
-                channelName = channelName,
-                myUserId = myUserId,
-                listingId = listingId,
-                onNewMessage = { msg -> handleIncomingMessage(msg) },
-                onMessageUpdated = { msg -> handleMessageUpdated(msg) },
-                onPresenceChange = { onlineIds ->
-                    _uiState.update {
-                        it.copy(isParticipantOnline = participantId in onlineIds)
+                // 3. Open Realtime channel
+                val channelName = buildChannelName(myUserId, participantId, listingId)
+                repository.enterChat(
+                    scope = viewModelScope,
+                    channelName = channelName,
+                    myUserId = myUserId,
+                    listingId = listingId,
+                    onNewMessage = { msg -> handleIncomingMessage(msg) },
+                    onMessageUpdated = { msg -> handleMessageUpdated(msg) },
+                    onPresenceChange = { onlineIds ->
+                        _uiState.update {
+                            it.copy(isParticipantOnline = participantId in onlineIds)
+                        }
                     }
-                }
-            )
+                )
+            }.onFailure { e ->
+                e.printStackTrace()
+                _uiState.update { it.copy(error = e.message ?: "Failed to connect to chat") }
+            }
         }
+    }
+
+    /**
+     * Updates the [isBlocked] flag in the UI state.  Call this when the user
+     * blocks or unblocks the participant from within the conversation screen.
+     */
+    fun setBlocked(blocked: Boolean) {
+        _uiState.update { it.copy(isBlocked = blocked) }
     }
 
     // ── ON_RESUME hook ────────────────────────────────────────────────────────
@@ -118,7 +139,9 @@ class ChatViewModel : ViewModel() {
      */
     fun onResume() {
         if (myUserId.isBlank() || participantId.isBlank() || listingId.isBlank()) return
-        viewModelScope.launch { markRead() }
+        viewModelScope.launch {
+            runCatching { markRead() }
+        }
     }
 
     // ── Send ──────────────────────────────────────────────────────────────────
@@ -134,12 +157,16 @@ class ChatViewModel : ViewModel() {
 
         _uiState.update { it.copy(isSending = true, error = null) }
         viewModelScope.launch {
-            repository.sendMessage(
-                senderId = myUserId,
-                receiverId = participantId,
-                listingId = listingId,
-                content = trimmed
-            ).onFailure { e ->
+            runCatching {
+                repository.sendMessage(
+                    senderId = myUserId,
+                    receiverId = participantId,
+                    listingId = listingId,
+                    content = trimmed
+                ).onFailure { e ->
+                    _uiState.update { it.copy(error = e.message ?: "Failed to send message") }
+                }
+            }.onFailure { e ->
                 _uiState.update { it.copy(error = e.message ?: "Failed to send message") }
             }
             _uiState.update { it.copy(isSending = false) }
@@ -148,7 +175,7 @@ class ChatViewModel : ViewModel() {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private suspend fun markRead() {
+    private suspend fun markRead() = runCatching {
         repository.markMessagesRead(
             myId = myUserId,
             senderId = participantId,
@@ -163,6 +190,8 @@ class ChatViewModel : ViewModel() {
                 }
             )
         }
+    }.getOrElse { e ->
+        e.printStackTrace()
     }
 
     /**

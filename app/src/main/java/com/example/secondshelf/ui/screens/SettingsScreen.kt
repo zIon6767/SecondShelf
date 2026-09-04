@@ -26,6 +26,7 @@ import android.content.Context
 import android.view.SoundEffectConstants
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import com.example.secondshelf.ui.model.getSellerName
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 import java.util.Locale
 
@@ -249,13 +250,8 @@ fun ChatSettingsScreen(
         )
     }
 
-    // Blocked accounts
-    var blockedAccounts by remember {
-        mutableStateOf(
-            prefs.getStringSet("blocked_accounts", setOf("ScammerBot_01 (Reported)"))?.toMutableSet()
-                ?: mutableSetOf("ScammerBot_01 (Reported)")
-        )
-    }
+    // Blocked accounts directly from ViewModel (synced across MessagesScreen, ConversationScreen, and Settings)
+    val blockedAccounts = viewModel.blockedUserIds
 
     // Dialog control states
     var showClearCacheDialog by remember { mutableStateOf(false) }
@@ -324,7 +320,10 @@ fun ChatSettingsScreen(
                             Text("No blocked accounts.", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary, textAlign = TextAlign.Center)
                         }
                     } else {
-                        blockedAccounts.forEach { accountName ->
+                        blockedAccounts.forEach { accountId ->
+                            val displayName = getSellerName(accountId).let { name ->
+                                if (name == "Unknown Seller") accountId else "$name ($accountId)"
+                            }
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -333,14 +332,11 @@ fun ChatSettingsScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                                     Icon(Icons.Outlined.Block, contentDescription = null, tint = Color(0xFFFF3B30), modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(8.dp))
-                                    Text(accountName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                    Text(displayName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                                 }
                                 TextButton(
                                     onClick = {
-                                        val updated = blockedAccounts.toMutableSet().apply { remove(accountName) }
-                                        blockedAccounts = updated
-                                        prefs.edit().putStringSet("blocked_accounts", updated).apply()
-                                        viewModel.showToast("Unblocked $accountName")
+                                        viewModel.unblockUser(accountId)
                                     },
                                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                                 ) {
@@ -390,10 +386,7 @@ fun ChatSettingsScreen(
                 Button(
                     onClick = {
                         if (newBlockId.isNotBlank()) {
-                            val updated = blockedAccounts.toMutableSet().apply { add(newBlockId.trim()) }
-                            blockedAccounts = updated
-                            prefs.edit().putStringSet("blocked_accounts", updated).apply()
-                            viewModel.showToast("Blocked ${newBlockId.trim()}")
+                            viewModel.blockUser(newBlockId.trim())
                             newBlockId = ""
                         }
                         showAddBlockDialog = false
@@ -950,7 +943,7 @@ private fun TermsCard(icon: ImageVector, title: String, content: String) {
 fun SettingsScreenPreview() {
     com.example.secondshelf.ui.theme.SecondShelfTheme {
         SettingsScreen(
-            viewModel = MarketplaceViewModel(),
+            viewModel = MarketplaceViewModel(android.app.Application()),
             onNavigateBack = {},
             onNavigateToEditProfile = {},
             onNavigateToMyListings = {},
@@ -970,7 +963,7 @@ fun SettingsScreenPreview() {
 fun ChatSettingsScreenPreview() {
     com.example.secondshelf.ui.theme.SecondShelfTheme {
         ChatSettingsScreen(
-            viewModel = MarketplaceViewModel(),
+            viewModel = MarketplaceViewModel(android.app.Application()),
             onNavigateBack = {}
         )
     }
