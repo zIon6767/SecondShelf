@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.secondshelf.ui.navigation.AppNavigation
 import com.example.secondshelf.ui.theme.SecondShelfTheme
+import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 
 class MainActivity : ComponentActivity() {
 
@@ -33,12 +34,14 @@ class MainActivity : ComponentActivity() {
         handleDeepLinkIntent(intent)
 
         setContent {
-            SecondShelfTheme {
+            val marketplaceViewModel: MarketplaceViewModel = viewModel()
+            SecondShelfTheme(darkTheme = marketplaceViewModel.isDarkMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     AppNavigation(
+                        marketplaceViewModel = marketplaceViewModel,
                         authCallbackUri = authCallbackUri
                     )
                 }

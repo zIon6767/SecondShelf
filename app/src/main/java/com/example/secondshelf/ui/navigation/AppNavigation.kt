@@ -18,10 +18,12 @@ import com.example.secondshelf.ui.viewmodel.ChatViewModel
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 
 @Composable
-fun AppNavigation(authCallbackUri: Uri? = null, marketplaceViewModel: MarketplaceViewModel) {
+fun AppNavigation(
+    authCallbackUri: Uri? = null,
+    marketplaceViewModel: MarketplaceViewModel = viewModel()
+) {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
-    val marketplaceViewModel: MarketplaceViewModel = viewModel()
     val authUiState by authViewModel.uiState.collectAsState()
 
     // Trigger OAuth token exchange when the deep-link arrives
