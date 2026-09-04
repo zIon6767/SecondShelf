@@ -236,9 +236,10 @@ fun ChatSettingsScreen(
     val view = LocalView.current
     val prefs = remember { context.getSharedPreferences("second_shelf_chat_settings", Context.MODE_PRIVATE) }
 
-    var messageNotifications by remember { mutableStateOf(prefs.getBoolean("msg_notifications", true)) }
-    var messagePreviews by remember { mutableStateOf(prefs.getBoolean("msg_previews", true)) }
-    var inAppSound by remember { mutableStateOf(prefs.getBoolean("in_app_sound", true)) }
+    var enterIsSend by remember { mutableStateOf(prefs.getBoolean("enter_is_send", false)) }
+    var autoDownloadMedia by remember { mutableStateOf(prefs.getBoolean("auto_download_media", true)) }
+    var campusMeetupAlerts by remember { mutableStateOf(prefs.getBoolean("campus_meetup_alerts", true)) }
+    var scamProtection by remember { mutableStateOf(prefs.getBoolean("scam_protection", true)) }
     var readReceipts by remember { mutableStateOf(prefs.getBoolean("read_receipts", true)) }
     var onlineStatus by remember { mutableStateOf(prefs.getBoolean("online_status", true)) }
 
@@ -442,45 +443,59 @@ fun ChatSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             Column {
-                SettingsSectionTitle("Notifications & Alerts")
+                SettingsSectionTitle("Chat & Input")
                 SettingsGroup {
                     ChatToggleRow(
-                        icon = Icons.Outlined.Notifications,
-                        iconColor = Color(0xFFFF9500),
-                        title = "Message Notifications",
-                        subtitle = "Receive alerts for incoming student inquiries",
-                        checked = messageNotifications
-                    ) {
-                        messageNotifications = it
-                        prefs.edit().putBoolean("msg_notifications", it).apply()
-                        viewModel.showToast(if (it) "Message notifications enabled" else "Message notifications muted")
-                    }
-                    HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
-                    ChatToggleRow(
-                        icon = Icons.Outlined.Visibility,
+                        icon = Icons.Default.Send,
                         iconColor = Color(0xFF007AFF),
-                        title = "Message Previews",
-                        subtitle = "Show sender name and message preview in alerts",
-                        checked = messagePreviews
+                        title = "Send on Enter",
+                        subtitle = "Press Enter on keyboard to immediately send messages",
+                        checked = enterIsSend
                     ) {
-                        messagePreviews = it
-                        prefs.edit().putBoolean("msg_previews", it).apply()
-                        viewModel.showToast(if (it) "Message previews shown in alerts" else "Message previews hidden for privacy")
+                        enterIsSend = it
+                        prefs.edit().putBoolean("enter_is_send", it).apply()
+                        viewModel.showToast(if (it) "Send on Enter enabled" else "Send on Enter disabled")
                     }
                     HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
                     ChatToggleRow(
-                        icon = Icons.Outlined.VolumeUp,
-                        iconColor = Color(0xFF5856D6),
-                        title = "In-App Sounds",
-                        subtitle = "Play subtle sound when sending and receiving chats",
-                        checked = inAppSound
+                        icon = Icons.Outlined.Download,
+                        iconColor = Color(0xFF34C759),
+                        title = "Auto-Download Item Photos",
+                        subtitle = "Automatically load photos and deal images in chats",
+                        checked = autoDownloadMedia
                     ) {
-                        inAppSound = it
-                        prefs.edit().putBoolean("in_app_sound", it).apply()
-                        if (it) {
-                            view.playSoundEffect(SoundEffectConstants.CLICK)
-                        }
-                        viewModel.showToast(if (it) "In-app sounds enabled" else "In-app sounds muted")
+                        autoDownloadMedia = it
+                        prefs.edit().putBoolean("auto_download_media", it).apply()
+                        viewModel.showToast(if (it) "Media auto-download enabled" else "Media auto-download disabled")
+                    }
+                }
+            }
+
+            Column {
+                SettingsSectionTitle("Campus Safety & Trade Protection")
+                SettingsGroup {
+                    ChatToggleRow(
+                        icon = Icons.Outlined.School,
+                        iconColor = Color(0xFF5856D6),
+                        title = "Campus Meetup Reminders",
+                        subtitle = "Show reminder to meetup at designated public campus spots",
+                        checked = campusMeetupAlerts
+                    ) {
+                        campusMeetupAlerts = it
+                        prefs.edit().putBoolean("campus_meetup_alerts", it).apply()
+                        viewModel.showToast(if (it) "Meetup safety reminders enabled" else "Meetup safety reminders disabled")
+                    }
+                    HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
+                    ChatToggleRow(
+                        icon = Icons.Outlined.Security,
+                        iconColor = Color(0xFFFF9500),
+                        title = "Payment Scam Protection",
+                        subtitle = "Alert on suspicious external links or non-campus payment requests",
+                        checked = scamProtection
+                    ) {
+                        scamProtection = it
+                        prefs.edit().putBoolean("scam_protection", it).apply()
+                        viewModel.showToast(if (it) "Payment scam protection active" else "Payment scam protection paused")
                     }
                 }
             }

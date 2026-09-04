@@ -18,7 +18,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import android.content.Context
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.outlined.Security
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -168,6 +174,10 @@ fun ConversationScreen(
     }
 
     var showRatingDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val chatPrefs = remember { context.getSharedPreferences("second_shelf_chat_settings", Context.MODE_PRIVATE) }
+    val showMeetupSafety = remember { chatPrefs.getBoolean("campus_meetup_alerts", true) }
+    val enterIsSend = remember { chatPrefs.getBoolean("enter_is_send", false) }
 
     if (showRatingDialog) {
         com.example.secondshelf.ui.components.RatingReviewDialog(
@@ -270,6 +280,32 @@ fun ConversationScreen(
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f), thickness = 1.dp)
+
+        if (showMeetupSafety) {
+            Surface(
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.07f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Outlined.Security,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "Campus safety tip: Complete deals at public campus spots (Library Lobby, Canteen).",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+        }
 
         // ── Message list ──────────────────────────────────────────────────────
         if (uiState.messages.isEmpty()) {
@@ -399,7 +435,18 @@ fun ConversationScreen(
                     placeholder = { Text("Type a message…") },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(24.dp),
-                    singleLine = true
+                    singleLine = !enterIsSend,
+                    keyboardOptions = KeyboardOptions(
+                        imeAction = if (enterIsSend) ImeAction.Send else ImeAction.Default
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onSend = {
+                            if (messageText.isNotBlank() && !uiState.isSending) {
+                                chatViewModel.sendMessage(messageText)
+                                messageText = ""
+                            }
+                        }
+                    )
                 )
                 Spacer(Modifier.width(8.dp))
                 FilledIconButton(
