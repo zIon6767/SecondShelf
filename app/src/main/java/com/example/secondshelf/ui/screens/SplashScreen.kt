@@ -17,6 +17,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.secondshelf.R
+import androidx.compose.ui.tooling.preview.Preview
+import com.example.secondshelf.ui.theme.SecondShelfTheme
 import kotlinx.coroutines.delay
 
 @Composable
@@ -62,3 +64,12 @@ fun SplashScreen(onSplashFinished: () -> Unit) {
         }
     }
 }
+
+@Preview(showBackground = true)
+@Composable
+fun SplashScreenPreview() {
+    SecondShelfTheme {
+        SplashScreen(onSplashFinished = {})
+    }
+}
+

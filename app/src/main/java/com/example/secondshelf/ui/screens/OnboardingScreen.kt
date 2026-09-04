@@ -108,3 +108,12 @@ fun OnboardingScreen(onNavigateToLogin: () -> Unit) {
         }
     }
 }
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun OnboardingScreenPreview() {
+    com.example.secondshelf.ui.theme.SecondShelfTheme {
+        OnboardingScreen(onNavigateToLogin = {})
+    }
+}
+

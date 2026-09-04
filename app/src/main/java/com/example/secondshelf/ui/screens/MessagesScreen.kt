@@ -488,3 +488,16 @@ fun ConversationScreen(
     }
 }
 
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun MessagesScreenPreview() {
+    com.example.secondshelf.ui.theme.SecondShelfTheme {
+        MessagesScreen(
+            viewModel = MarketplaceViewModel(),
+            onNavigateBack = {},
+            onConversationClick = { _, _ -> }
+        )
+    }
+}
+
+

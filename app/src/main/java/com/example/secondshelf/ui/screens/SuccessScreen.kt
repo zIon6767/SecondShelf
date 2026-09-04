@@ -30,7 +30,7 @@ fun HandoffSuccessScreen(
     itemName: String = "Engineering Calculus Textbook",
     finalPrice: String = "RM 40"
 ) {
-    // State to track selected stars
+    //State to track selected stars
     var currentRating by remember { mutableIntStateOf(0) }
     val interactionSource = remember { MutableInteractionSource() }
 

@@ -200,3 +200,16 @@ private fun FormField(label: String, content: @Composable () -> Unit) {
         content()
     }
 }
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun CreateListingScreenPreview() {
+    com.example.secondshelf.ui.theme.SecondShelfTheme {
+        CreateListingScreen(
+            viewModel = MarketplaceViewModel(),
+            onNavigateBack = {},
+            onSuccess = {}
+        )
+    }
+}
+

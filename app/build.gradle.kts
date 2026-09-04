@@ -80,6 +80,9 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.material.icons.extended)
 
+    //zxing (zebra crossing) for qr code math
+    implementation("com.google.zxing:core:3.5.3")
+
     // Supabase Auth + Database
     implementation(platform(libs.supabase.bom))
     implementation(libs.supabase.auth)
@@ -102,6 +105,16 @@ dependencies {
 
     // Coil for image loading
     implementation(libs.coil.compose)
+
+    //ML Kit for QR scanning
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
+    //CameraX
+    val camerax_version = "1.4.1"
+    implementation("androidx.camera:camera-core:${camerax_version}")
+    implementation("androidx.camera:camera-camera2:${camerax_version}")
+    implementation("androidx.camera:camera-lifecycle:${camerax_version}")
+    implementation("androidx.camera:camera-view:${camerax_version}")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

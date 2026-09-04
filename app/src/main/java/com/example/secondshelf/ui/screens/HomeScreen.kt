@@ -1220,3 +1220,29 @@ private fun ProfileStat(value: String, label: String, onClick: (() -> Unit)? = n
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
     }
 }
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun HomeScreenPreview() {
+    com.example.secondshelf.ui.theme.SecondShelfTheme {
+        HomeScreen(
+            viewModel = MarketplaceViewModel(),
+            userId = "user-1",
+            userName = "Sarah Lee",
+            userEmail = "sarahlee@student.tarc.edu.my",
+            userCampus = "KL Main Campus",
+            userUniversity = "TAR UMT",
+            userAvatarUrl = "",
+            onNavigateToNotifications = {},
+            onNavigateToMarketplace = {},
+            onNavigateToListing = {},
+            onNavigateToSettings = {},
+            onNavigateToCreateListing = {},
+            onNavigateToSaved = {},
+            onNavigateToMessages = {},
+            onNavigateToEditProfile = {},
+            onLogout = {}
+        )
+    }
+}
+

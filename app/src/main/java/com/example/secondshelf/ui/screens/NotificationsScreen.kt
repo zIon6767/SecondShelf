@@ -143,3 +143,15 @@ private fun notificationIcon(type: NotificationType): Pair<ImageVector, Color> =
     NotificationType.DEAL -> Icons.Default.LocalOffer to Color(0xFFFF9500)
     NotificationType.LISTING_POSTED -> Icons.Default.CheckCircle to Color(0xFF007AFF)
 }
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun NotificationsScreenPreview() {
+    com.example.secondshelf.ui.theme.SecondShelfTheme {
+        NotificationsScreen(
+            viewModel = MarketplaceViewModel(),
+            onNavigateBack = {}
+        )
+    }
+}
+
