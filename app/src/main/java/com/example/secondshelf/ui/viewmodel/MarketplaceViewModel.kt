@@ -754,8 +754,12 @@ class MarketplaceViewModel(
     ) {
         viewModelScope.launch {
             val transactionRepo = com.example.secondshelf.data.TransactionRepository(supabase)
-            val token = transactionRepo.createHandoff(listingId, buyerId, sellerId) ?: listingId
-            onTokenReady(token)
+            val token = transactionRepo.createHandoff(listingId, buyerId, sellerId)
+            if (token != null) {
+                onTokenReady(token)
+            } else {
+                showToast("Could not create pickup QR. Check the buyer and try again.")
+            }
         }
     }
 
