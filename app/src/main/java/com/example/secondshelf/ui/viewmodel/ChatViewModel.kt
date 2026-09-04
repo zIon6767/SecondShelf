@@ -49,6 +49,7 @@ class ChatViewModel : ViewModel() {
     private var myUserId: String = ""
     private var participantId: String = ""
     private var listingId: String = ""
+    private var enterChatJob: kotlinx.coroutines.Job? = null
 
     // ── Entry point ───────────────────────────────────────────────────────────
 
@@ -83,7 +84,8 @@ class ChatViewModel : ViewModel() {
             _uiState.update { it.copy(participantName = participantName) }
         }
 
-        viewModelScope.launch {
+        enterChatJob?.cancel()
+        enterChatJob = viewModelScope.launch {
             // If name is blank or default, try fetching real seller profile name in background
             if (_uiState.value.participantName.isBlank() || _uiState.value.participantName in listOf("Student", "Unknown Seller", "Seller")) {
                 val fetched = repository.fetchUserName(participantId)
@@ -102,7 +104,7 @@ class ChatViewModel : ViewModel() {
             // 3. Open Realtime channel
             val channelName = buildChannelName(myUserId, participantId, listingId)
             repository.enterChat(
-                scope = viewModelScope,
+                scope = this,
                 channelName = channelName,
                 myUserId = myUserId,
                 listingId = listingId,
