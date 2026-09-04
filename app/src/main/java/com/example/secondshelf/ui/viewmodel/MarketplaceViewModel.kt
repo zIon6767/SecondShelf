@@ -913,37 +913,6 @@ class MarketplaceViewModel(
         loadConversationsFromDb(myUserId)
     }
 
-    fun simulateIncomingMessage(
-        senderName: String = "Sarah Lee",
-        content: String = "Hi! Is your item still available? Can we meet at Block M?",
-        listingId: String = listings.firstOrNull()?.id ?: "listing-1",
-        participantId: String = "demo_sender_${System.currentTimeMillis()}"
-    ) {
-        val notif = AppNotification(
-            id = "notif-sim-${UUID.randomUUID().toString().take(8)}",
-            userId = currentUser.id,
-            type = NotificationType.MESSAGE,
-            title = "New message from $senderName",
-            message = content,
-            time = "Just now",
-            read = false,
-            participantId = participantId,
-            listingId = listingId
-        )
-        notifications = listOf(notif) + notifications
-        showPopupNotification(
-            InAppNotificationData(
-                id = notif.id,
-                title = senderName,
-                message = content,
-                senderName = senderName,
-                participantId = participantId,
-                listingId = listingId,
-                avatarInitial = senderName.firstOrNull()?.uppercaseChar()?.toString() ?: "S"
-            )
-        )
-    }
-
     override fun onCleared() {
         super.onCleared()
         messageListenerJob?.cancel()

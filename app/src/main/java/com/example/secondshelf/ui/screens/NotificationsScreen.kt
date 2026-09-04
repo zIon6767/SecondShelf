@@ -62,14 +62,9 @@ fun NotificationsScreen(
                     }
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { viewModel.simulateIncomingMessage() }) {
-                    Text("Test msg", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
-                }
-                if (notifications.isNotEmpty()) {
-                    TextButton(onClick = viewModel::markAllNotificationsRead) {
-                        Text("Mark all read", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
-                    }
+            if (notifications.isNotEmpty()) {
+                TextButton(onClick = viewModel::markAllNotificationsRead) {
+                    Text("Mark all read", color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -112,16 +107,6 @@ fun NotificationsScreen(
                         color = MaterialTheme.colorScheme.secondary,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = { viewModel.simulateIncomingMessage() },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Simulate Incoming Message")
-                    }
                 }
             }
         } else {
