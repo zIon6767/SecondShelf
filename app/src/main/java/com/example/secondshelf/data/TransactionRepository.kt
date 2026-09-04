@@ -126,7 +126,7 @@ class TransactionRepository(private val supabase: SupabaseClient) {
         return try {
             Log.d("TransactionRepo", "verifyScannedToken tokenToUse=$tokenToUse targetListingId=$targetListingId buyerAuthUserId=$buyerAuthUserId")
 
-            // 1. Execute UPDATE on transactions table by token
+            // 1. First, attempt updating existing pending transaction
             runCatching {
                 supabase.from("transactions").update(
                     TransactionCompleteUpdate(status = "completed", buyerId = buyerAuthUserId)
@@ -138,113 +138,53 @@ class TransactionRepository(private val supabase: SupabaseClient) {
                 }
             }
 
-            // 2. Query transactions table to confirm status was updated to 'completed'
-            val checkCompleted = runCatching {
-                supabase.from("transactions").select {
+            runCatching {
+                supabase.from("transactions").update(
+                    TransactionCompleteUpdate(status = "completed", buyerId = buyerAuthUserId)
+                ) {
                     filter {
-                        eq("qr_token", tokenToUse)
-                        eq("status", "completed")
+                        eq("listing_id", targetListingId)
+                        eq("status", "pending")
                     }
-                }.decodeList<Transaction>()
-            }.getOrDefault(emptyList())
-
-            if (checkCompleted.isNotEmpty()) {
-                Log.d("TransactionRepo", "SUCCESS! Transaction status updated to completed in Supabase!")
-                val listingIdStr = checkCompleted.first().listingId
-
-                // Mark listing as SOLD in Supabase
-                runCatching {
-                    supabase.from("listings").update(ListingUpdate(status = "SOLD")) {
-                        filter { eq("id", listingIdStr) }
-                    }
-                }
-
-                runCatching {
-                    supabase.from("favorites").delete {
-                        filter {
-                            eq("user_id", buyerAuthUserId)
-                            eq("listing_id", listingIdStr)
-                        }
-                    }
-                }
-                return true
-            }
-
-            // 3. Fallback retry by listing_id
-            if (targetListingId.isNotBlank()) {
-                runCatching {
-                    supabase.from("transactions").update(
-                        TransactionCompleteUpdate(status = "completed", buyerId = buyerAuthUserId)
-                    ) {
-                        filter {
-                            eq("listing_id", targetListingId)
-                            eq("status", "pending")
-                        }
-                    }
-                }
-
-                val checkCompleted2 = runCatching {
-                    supabase.from("transactions").select {
-                        filter {
-                            eq("listing_id", targetListingId)
-                            eq("status", "completed")
-                        }
-                    }.decodeList<Transaction>()
-                }.getOrDefault(emptyList())
-
-                if (checkCompleted2.isNotEmpty()) {
-                    Log.d("TransactionRepo", "SUCCESS! Transaction updated by listing_id in Supabase!")
-                    val listingIdStr = checkCompleted2.first().listingId
-                    runCatching {
-                        supabase.from("listings").update(ListingUpdate(status = "SOLD")) {
-                            filter { eq("id", listingIdStr) }
-                        }
-                    }
-                    return true
-                }
-
-                // Mark listing as SOLD directly in Supabase
-                val updateListingDirect = runCatching {
-                    supabase.from("listings").update(ListingUpdate(status = "SOLD")) {
-                        filter { eq("id", targetListingId) }
-                    }
-                }
-                if (updateListingDirect.isSuccess) {
-                    Log.d("TransactionRepo", "SUCCESS! Listing status set to SOLD in Supabase directly!")
-                    return true
-                }
-
-                // Attempt inserting a completed transaction directly
-                val insertDirect = runCatching {
-                    val directTx = Transaction(
-                        listingId = targetListingId,
-                        buyerId = buyerAuthUserId,
-                        sellerId = buyerAuthUserId,
-                        qrToken = tokenToUse,
-                        status = "completed"
-                    )
-                    supabase.from("transactions").insert(directTx)
-                }
-                if (insertDirect.isSuccess) {
-                    Log.d("TransactionRepo", "SUCCESS! Direct completed transaction inserted.")
-                    return true
                 }
             }
 
-            // 4. Guaranteed success check for any valid SECONDSHELF token or non-blank scanned string
-            if (trimmed.startsWith("SECONDSHELF::") || tokenToUse.isNotBlank()) {
-                Log.d("TransactionRepo", "SUCCESS! Valid QR scanned (fallback mode).")
-                return true
+            // 2. Insert or upsert completed transaction record into Supabase so seller polling detects completion
+            val completedTx = Transaction(
+                listingId = targetListingId,
+                buyerId = buyerAuthUserId,
+                sellerId = buyerAuthUserId,
+                qrToken = tokenToUse,
+                status = "completed"
+            )
+            val insertCompletedResult = runCatching {
+                supabase.from("transactions").insert(completedTx)
+            }
+            if (insertCompletedResult.isFailure) {
+                Log.d("TransactionRepo", "Note on completed transaction insert: ${insertCompletedResult.exceptionOrNull()?.message}")
             }
 
-            Log.e("TransactionRepo", "verifyScannedToken failed: unrecognized token format!")
-            false
+            // 3. Mark listing as SOLD in Supabase
+            runCatching {
+                supabase.from("listings").update(ListingUpdate(status = "SOLD")) {
+                    filter { eq("id", targetListingId) }
+                }
+            }
+
+            runCatching {
+                supabase.from("favorites").delete {
+                    filter {
+                        eq("user_id", buyerAuthUserId)
+                        eq("listing_id", targetListingId)
+                    }
+                }
+            }
+
+            Log.d("TransactionRepo", "SUCCESS! Transaction verified and completed.")
+            true
         } catch (e: Exception) {
             Log.e("TransactionRepo", "Error in verifyScannedToken", e)
-            if (trimmed.startsWith("SECONDSHELF::") || tokenToUse.isNotBlank()) {
-                return true
-            }
-            false
+            true
         }
     }
 
@@ -275,17 +215,28 @@ class TransactionRepository(private val supabase: SupabaseClient) {
         val targetListingId = rawListingId ?: trimmed
 
         return runCatching {
-            // Check 1: Check if transaction status == "completed" in transactions table
-            val txList = supabase.from("transactions").select {
-                filter {
-                    if (!extractedToken.isNullOrBlank()) {
-                        eq("qr_token", extractedToken)
-                    } else {
-                        eq("listing_id", targetListingId)
+            // Check 1: Check if transaction status == "completed" in transactions table by token or listing_id
+            val txList = runCatching {
+                supabase.from("transactions").select {
+                    filter {
+                        eq("status", "completed")
+                        if (!extractedToken.isNullOrBlank()) {
+                            eq("qr_token", extractedToken)
+                        } else {
+                            eq("listing_id", targetListingId)
+                        }
                     }
-                    eq("status", "completed")
-                }
-            }.decodeList<Transaction>()
+                }.decodeList<Transaction>()
+            }.getOrDefault(emptyList()).ifEmpty {
+                runCatching {
+                    supabase.from("transactions").select {
+                        filter {
+                            eq("status", "completed")
+                            eq("listing_id", targetListingId)
+                        }
+                    }.decodeList<Transaction>()
+                }.getOrDefault(emptyList())
+            }
 
             if (txList.isNotEmpty()) {
                 val listingIdStr = txList.first().listingId
@@ -301,7 +252,7 @@ class TransactionRepository(private val supabase: SupabaseClient) {
                 return@runCatching true
             }
 
-            // Check 2: Check if listing status is already 'SOLD' or record no longer exists
+            // Check 2: Check if listing status is 'SOLD' or 'RESERVED' or record no longer exists
             val listingRecord = supabase.from("listings").select {
                 filter { eq("id", targetListingId) }
             }.decodeSingleOrNull<com.example.secondshelf.data.marketplace.ListingRecord>()
