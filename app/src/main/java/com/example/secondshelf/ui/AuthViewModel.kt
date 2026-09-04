@@ -389,6 +389,19 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 cachedEmail = email
                 cachedFullName = name
                 sessionManager.saveSession(uid, email, name, campus)
+
+                // Keep a public marketplace profile for seller identity.
+                supabase.postgrest.from("profiles").upsert(
+                    listOf(
+                        buildJsonObject {
+                            put("id", uid)
+                            put("email", email)
+                            put("name", name)
+                            put("campus", campus)
+                            put("university", "TAR UMT")
+                        }
+                    )
+                )
                 _uiState.value = AuthUiState.Success
             }.onFailure { e ->
                 setError("Google sign-in failed: ${e.message}")
