@@ -423,13 +423,15 @@ class MarketplaceViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun refreshConversations() {
-        val myId = currentUser.id
+        val myId = runCatching { currentUser.id }.getOrNull() ?: return
         if (myId.isBlank() || myId == "user-current") return
         viewModelScope.launch {
             isLoadingConversations = true
-            val remote = chatRepository.loadConversations(myId)
-            if (remote.isNotEmpty()) {
+            runCatching {
+                val remote = chatRepository.loadConversations(myId)
                 conversations = remote
+            }.onFailure { e ->
+                e.printStackTrace()
             }
             isLoadingConversations = false
         }

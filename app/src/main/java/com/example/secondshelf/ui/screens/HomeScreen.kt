@@ -650,9 +650,10 @@ private fun ChatTab(
 ) {
     val conversations = viewModel.conversations
     val showPreviews = viewModel.showMessagePreviews
+    val isLoading = viewModel.isLoadingConversations
 
-    // Refresh conversations from Supabase when entering Chat Tab
-    LaunchedEffect(Unit) {
+    // Refresh conversations from Supabase when entering Chat Tab or user ID updates
+    LaunchedEffect(viewModel.currentUser.id) {
         viewModel.refreshConversations()
     }
 
@@ -693,9 +694,16 @@ private fun ChatTab(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f), thickness = 1.dp)
 
-        if (conversations.isEmpty()) {
+        if (isLoading) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        if (conversations.isEmpty() && !isLoading) {
             EmptyState("No messages yet", "Contact sellers on any listing to start chatting")
-        } else {
+        } else if (!isLoading || conversations.isNotEmpty()) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(vertical = 8.dp)

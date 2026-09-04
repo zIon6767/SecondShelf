@@ -72,13 +72,15 @@ class ChatRepository {
         }.map { (key, msgs) ->
             val latest = msgs.first()
             val otherId = if (latest.senderId == myId) latest.receiverId else latest.senderId
+            val unreadCount = msgs.count { it.senderId == otherId && it.receiverId == myId && !it.isRead }
 
             Conversation(
                 id = "${latest.listingId}_$otherId",
                 participantId = otherId,
                 listingId = latest.listingId,
                 lastMessage = latest.content,
-                lastTimestamp = latest.createdAt ?: ""
+                lastTimestamp = latest.createdAt ?: "",
+                unreadCount = unreadCount
             )
         }
     }.getOrDefault(emptyList())

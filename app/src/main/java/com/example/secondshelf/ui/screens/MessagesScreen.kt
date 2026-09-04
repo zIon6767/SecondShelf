@@ -116,7 +116,7 @@ fun MessagesScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.Chat, contentDescription = null, tint = Color(0xFFD1D5DB), modifier = Modifier.size(64.dp))
                     Spacer(Modifier.height(12.dp))
-                    Text("No message yet", color = MaterialTheme.colorScheme.secondary)
+                    Text("No message yet     ", color = MaterialTheme.colorScheme.secondary)
                 }
             }
         } else if (!isLoading || conversations.isNotEmpty()) {
