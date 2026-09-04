@@ -36,14 +36,14 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val marketplaceViewModel: MarketplaceViewModel = viewModel()
-            SecondShelfTheme {
+            SecondShelfTheme(darkTheme = marketplaceViewModel.isDarkMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     AppNavigation(
-                        authCallbackUri = authCallbackUri,
-                        marketplaceViewModel = marketplaceViewModel
+                        marketplaceViewModel = marketplaceViewModel,
+                        authCallbackUri = authCallbackUri
                     )
                 }
             }

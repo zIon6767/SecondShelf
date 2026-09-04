@@ -3,11 +3,6 @@ package com.example.secondshelf.ui.model
 import androidx.compose.ui.graphics.Color
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import java.time.Instant
-import java.time.LocalDateTime
-import java.time.OffsetDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 enum class Category(val label: String) {
     ALL("All"),
@@ -120,26 +115,28 @@ data class ListingFilters(
 
 fun formatPrice(price: Int) = "RM $price"
 
-/**
- * Formats a UTC ISO-8601 timestamp string from Supabase (e.g. "2026-09-04T04:15:30.123456+00:00")
- * into local time format "HH:mm" using the device's system default time zone.
- */
-fun formatMessageTime(createdAt: String): String {
-    if (createdAt.isBlank()) return ""
-    return runCatching {
-        val cleanTime = createdAt.replace("Z", "+0000").replace(Regex("([+-]\\d{2}):(\\d{2})$"), "$1$2")
-        val inputFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US).apply {
-            timeZone = java.util.TimeZone.getTimeZone("UTC")
-        }
-        val date = inputFormat.parse(cleanTime) ?: return createdAt
+fun formatListingDate(value: String): String {
+    val date = value.take(10)
+    val parts = date.split("-")
+    if (parts.size != 3) return value
 
-        val outputFormat = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).apply {
-            timeZone = java.util.TimeZone.getDefault()
-        }
-        outputFormat.format(date)
-    }.getOrElse {
-        if (createdAt.contains(":")) createdAt.substringAfter("T").take(5) else createdAt
+    val month = when (parts[1]) {
+        "01" -> "Jan"
+        "02" -> "Feb"
+        "03" -> "Mar"
+        "04" -> "Apr"
+        "05" -> "May"
+        "06" -> "Jun"
+        "07" -> "Jul"
+        "08" -> "Aug"
+        "09" -> "Sep"
+        "10" -> "Oct"
+        "11" -> "Nov"
+        "12" -> "Dec"
+        else -> return value
     }
+    val day = parts[2].trimStart('0').ifBlank { "0" }
+    return "$day $month ${parts[0]}"
 }
 
 // ── Supabase Realtime Chat Models ──────────────────────────────────────────────

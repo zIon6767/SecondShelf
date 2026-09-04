@@ -1,11 +1,9 @@
 package com.example.secondshelf.ui.viewmodel
 
-import android.app.Application
-import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.secondshelf.data.marketplace.CreateListingRecord
 import com.example.secondshelf.data.marketplace.ListingRecord
@@ -13,7 +11,6 @@ import com.example.secondshelf.data.marketplace.SellerProfileRecord
 import com.example.secondshelf.data.marketplace.SupabaseMarketplaceRepository
 import com.example.secondshelf.data.marketplace.UpdateListingRecord
 import com.example.secondshelf.supabase
-import com.example.secondshelf.data.ChatRepository
 import com.example.secondshelf.ui.model.*
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.launch
@@ -26,11 +23,14 @@ import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-class MarketplaceViewModel(application: Application) : AndroidViewModel(application) {
+class MarketplaceViewModel(
+    private val repository: SupabaseMarketplaceRepository = SupabaseMarketplaceRepository()
+) : ViewModel() {
 
-    private val chatRepository = ChatRepository()
+    init {
+        fetchReviews()
+    }
 
-    // ── Current authenticated user state ──
     var currentUser by mutableStateOf(
         User(
             id = "user-current",
@@ -41,63 +41,6 @@ class MarketplaceViewModel(application: Application) : AndroidViewModel(applicat
         )
     )
         private set
-
-    // ── Chat-settings SharedPreferences ──
-    private val chatPrefs = application.getSharedPreferences("second_shelf_chat_settings", Context.MODE_PRIVATE)
-
-    val showMessagePreviews: Boolean
-        get() = runCatching { chatPrefs.getBoolean("msg_previews", true) }.getOrDefault(true)
-
-    val showOnlineStatus: Boolean
-        get() = runCatching { chatPrefs.getBoolean("online_status", true) }.getOrDefault(true)
-
-    val showReadReceipts: Boolean
-        get() = runCatching { chatPrefs.getBoolean("read_receipts", true) }.getOrDefault(true)
-
-    // ── Blocked user IDs ──
-    private fun blockedPrefsKey(userId: String? = null): String {
-        // IMPORTANT: We use a safe fallback if currentUser isn't accessible yet
-        val uid = userId ?: try { currentUser.id } catch(e: Exception) { "user-current" }
-        return "blocked_ids_${uid.ifBlank { "user-current" }}"
-    }
-
-    var blockedUserIds by mutableStateOf(setOf<String>())
-        private set
-
-    private fun loadBlockedIds(initialUid: String = "user-current") {
-        runCatching {
-            val key = blockedPrefsKey(initialUid)
-            blockedUserIds = chatPrefs.getStringSet(key, emptySet())?.toSet() ?: emptySet()
-        }.onFailure {
-            blockedUserIds = emptySet()
-        }
-    }
-
-    fun isBlocked(userId: String): Boolean = userId in blockedUserIds
-
-    fun blockUser(userId: String) {
-        runCatching {
-            val updated = blockedUserIds + userId
-            blockedUserIds = updated
-            chatPrefs.edit().putStringSet(blockedPrefsKey(), updated).apply()
-            showToast("Account blocked")
-        }
-    }
-
-    fun unblockUser(userId: String) {
-        runCatching {
-            val updated = blockedUserIds - userId
-            blockedUserIds = updated
-            chatPrefs.edit().putStringSet(blockedPrefsKey(), updated).apply()
-            showToast("Account unblocked")
-        }
-    }
-
-    init {
-        // Use safe initialisation path
-        loadBlockedIds("user-current")
-        fetchReviews()
-    }
 
     fun syncAuthUser(
         id: String = "",
@@ -139,8 +82,9 @@ class MarketplaceViewModel(application: Application) : AndroidViewModel(applicat
             avatarInitial = initial,
             avatarUrl = cleanAvatarUrl
         )
-        // Refresh blocked list for the new UID
-        loadBlockedIds(cleanId)
+        if (cleanId != previousId && isSupabaseUserId(cleanId)) {
+            refreshMarketplace()
+        }
     }
 
     var listings by mutableStateOf<List<Listing>>(emptyList())
@@ -149,7 +93,43 @@ class MarketplaceViewModel(application: Application) : AndroidViewModel(applicat
     var favorites by mutableStateOf(setOf<String>())
         private set
 
-    var reviews by mutableStateOf<List<Review>>(emptyList())
+    var isMarketplaceLoading by mutableStateOf(false)
+        private set
+
+    var isListingSaving by mutableStateOf(false)
+        private set
+
+    var marketplaceError by mutableStateOf<String?>(null)
+        private set
+
+    var reviews by mutableStateOf<List<Review>>(
+        listOf(
+            Review(
+                id = "rev-1",
+                authorId = "user-2",
+                authorName = "Sarah Lee",
+                authorAvatarInitial = "S",
+                targetUserId = "user-current",
+                listingTitle = "Calculus 9th Edition",
+                rating = 5,
+                comment = "Super fast response and punctual during meetup! Book condition was great.",
+                tags = listOf("Punctual", "Item as Described", "Friendly"),
+                timeAgo = "2 days ago"
+            ),
+            Review(
+                id = "rev-2",
+                authorId = "user-3",
+                authorName = "Marcus Wong",
+                authorAvatarInitial = "M",
+                targetUserId = "user-current",
+                listingTitle = "Scientific Calculator",
+                rating = 5,
+                comment = "Smooth transaction at library lobby. Highly recommended seller!",
+                tags = listOf("Fast Reply", "Friendly"),
+                timeAgo = "1 week ago"
+            )
+        )
+    )
         private set
 
     var notifications by mutableStateOf(initialNotifications)
@@ -159,9 +139,6 @@ class MarketplaceViewModel(application: Application) : AndroidViewModel(applicat
         private set
 
     var conversations by mutableStateOf(initialConversations)
-        private set
-
-    var isLoadingConversations by mutableStateOf(false)
         private set
 
     var homeCategory by mutableStateOf(Category.ALL)
@@ -354,9 +331,13 @@ class MarketplaceViewModel(application: Application) : AndroidViewModel(applicat
 
                 // Every token in the query must match at least one relevant attribute
                 queryTokens.all { token ->
+                    // 1. Category name match (e.g. "book" matches "Books", "cloth" matches "Clothing")
                     categoryWords.any { it.startsWith(token) || token.startsWith(it) } ||
+                    // 2. Title word match (e.g. "table" matches "Table", "calculus" matches "Calculus")
                     titleWords.any { word -> word.startsWith(token) || (token.length >= 4 && word.contains(token)) } ||
+                    // 3. Description word match (must start with token to avoid "suitable" matching "table")
                     descWords.any { word -> word.startsWith(token) } ||
+                    // 4. Seller name match
                     sellerWords.any { it.startsWith(token) }
                 }
             }
@@ -601,52 +582,6 @@ class MarketplaceViewModel(application: Application) : AndroidViewModel(applicat
             if (conv.participantId == participantId && conv.listingId == listingId) {
                 conv.copy(unreadCount = 0)
             } else conv
-        }
-    }
-
-    fun refreshConversations() {
-        val myId = runCatching { currentUser.id }.getOrNull() ?: return
-        if (myId.isBlank() || myId == "user-current") return
-        viewModelScope.launch {
-            isLoadingConversations = true
-            runCatching {
-                val remote = chatRepository.loadConversations(myId)
-                conversations = remote
-            }.onFailure { e ->
-                e.printStackTrace()
-            }
-            isLoadingConversations = false
-        }
-    }
-
-    fun upsertConversation(
-        participantId: String,
-        listingId: String,
-        lastMessage: String = "",
-        lastTimestamp: String = ""
-    ) {
-        val existing = conversations.find { it.participantId == participantId && it.listingId == listingId }
-        conversations = if (existing != null) {
-            conversations.map { conv ->
-                if (conv.participantId == participantId && conv.listingId == listingId) {
-                    conv.copy(
-                        lastMessage = lastMessage.ifBlank { conv.lastMessage },
-                        lastTimestamp = lastTimestamp.ifBlank { conv.lastTimestamp },
-                        unreadCount = 0
-                    )
-                } else conv
-            }
-        } else {
-            listOf(
-                Conversation(
-                    id = "${listingId}_${participantId}",
-                    listingId = listingId,
-                    participantId = participantId,
-                    lastMessage = lastMessage,
-                    lastTimestamp = lastTimestamp,
-                    unreadCount = 0
-                )
-            ) + conversations
         }
     }
 
