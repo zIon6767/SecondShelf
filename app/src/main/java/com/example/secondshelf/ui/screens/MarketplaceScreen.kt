@@ -32,6 +32,11 @@ fun MarketplaceScreen(
     onListingClick: (String) -> Unit
 ) {
     var showFilters by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        viewModel.updateFilters(ListingFilters())
+    }
+
     val filters = viewModel.marketplaceFilters
     val results = viewModel.filterListings(filters)
 
@@ -89,14 +94,26 @@ fun MarketplaceScreen(
             if (showFilters) {
                 MarketplaceFiltersPanel(
                     filters = filters,
-                    onCategoryChange = { viewModel.patchMarketplaceFilters { copy(category = it) } },
-                    onConditionChange = { viewModel.patchMarketplaceFilters { copy(condition = it) } },
+                    onCategoryChange = { selected ->
+                        viewModel.patchMarketplaceFilters {
+                            copy(category = if (category == selected && selected != Category.ALL) Category.ALL else selected)
+                        }
+                    },
+                    onConditionChange = { selected ->
+                        viewModel.patchMarketplaceFilters {
+                            copy(condition = if (condition == selected) null else selected)
+                        }
+                    },
                     onPriceRangeChange = { minimum, maximum ->
                         viewModel.patchMarketplaceFilters {
                             copy(minPrice = minimum, maxPrice = maximum)
                         }
                     },
-                    onSortChange = { viewModel.patchMarketplaceFilters { copy(sort = it) } },
+                    onSortChange = { selected ->
+                        viewModel.patchMarketplaceFilters {
+                            copy(sort = if (sort == selected && selected != SortOption.NEWEST) SortOption.NEWEST else selected)
+                        }
+                    },
                     onReset = { viewModel.updateFilters(ListingFilters()) },
                     modifier = Modifier.padding(horizontal = 20.dp)
                 )
@@ -216,7 +233,18 @@ private fun MarketplaceFiltersPanel(
                 )
             }
 
-            Text("Sort by", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Sort by", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Tap selected option to clear",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
