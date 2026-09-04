@@ -9,7 +9,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.School
@@ -38,8 +40,14 @@ import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 fun CompleteProfileScreen(
     authViewModel: AuthViewModel? = null,            // null only in Preview mode
     marketplaceViewModel: MarketplaceViewModel? = null,
-    onNavigateToHome: () -> Unit
+    onNavigateToHome: () -> Unit,
+    onNavigateBack: (() -> Unit)? = null
 ) {
+    // Intercept system back button / gesture when onNavigateBack is provided
+    BackHandler(enabled = onNavigateBack != null) {
+        onNavigateBack?.invoke()
+    }
+
     // ── Pre-fill name from auth session if available ─────────────────────────
     val initialName = authViewModel?.getUserFullName()?.let {
         if (it == "User" || it == "Student" || it == "null") "" else it
@@ -74,6 +82,30 @@ fun CompleteProfileScreen(
             .imePadding(),
         contentAlignment = Alignment.Center
     ) {
+        // Back button positioned at the top-left
+        if (onNavigateBack != null) {
+            Surface(
+                onClick = onNavigateBack,
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
+                shadowElevation = 1.dp,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .statusBarsPadding()
+                    .padding(start = 20.dp, top = 16.dp)
+                    .size(40.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -317,7 +349,8 @@ fun CompleteProfileScreen(
 fun CompleteProfileScreenPreview() {
     com.example.secondshelf.ui.theme.SecondShelfTheme {
         CompleteProfileScreen(
-            onNavigateToHome = {}
+            onNavigateToHome = {},
+            onNavigateBack = {}
         )
     }
 }

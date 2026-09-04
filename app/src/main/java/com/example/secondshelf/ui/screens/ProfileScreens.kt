@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -102,6 +103,10 @@ fun EditProfileScreen(
     var bio            by remember { mutableStateOf(user.bio.ifBlank { "TAR UMT Student" }) }
     var error          by remember { mutableStateOf<String?>(null) }
     var isSaving       by remember { mutableStateOf(false) }
+    val isVerified     = remember { authViewModel?.isEmailVerified() ?: true }
+    var isResending    by remember { mutableStateOf(false) }
+    var resendFeedback by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
+    val scope          = rememberCoroutineScope()
 
     // ── Avatar / photo upload state ──────────────────────────────────────────
     val avatarUrl   = authViewModel?.cachedAvatarUrl?.ifBlank { user.avatarUrl } ?: user.avatarUrl
@@ -296,25 +301,25 @@ fun EditProfileScreen(
                                 )
                             }
                         }
-                        // Verified badge
+                        // Dynamic Verified / Unverified badge
                         Surface(
                             shape = RoundedCornerShape(16.dp),
-                            color = Color(0xFF34C759).copy(alpha = 0.12f)
+                            color = if (isVerified) Color(0xFF34C759).copy(alpha = 0.12f) else Color(0xFFFF9500).copy(alpha = 0.15f)
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    Icons.Default.Lock,
-                                    contentDescription = "Locked",
-                                    tint = Color(0xFF2E7D32),
+                                    if (isVerified) Icons.Default.Lock else Icons.Default.Warning,
+                                    contentDescription = if (isVerified) "Verified" else "Unverified",
+                                    tint = if (isVerified) Color(0xFF2E7D32) else Color(0xFFD97706),
                                     modifier = Modifier.size(12.dp)
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Text(
-                                    "Verified",
-                                    color = Color(0xFF2E7D32),
+                                    if (isVerified) "Verified" else "Unverified",
+                                    color = if (isVerified) Color(0xFF2E7D32) else Color(0xFFD97706),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -323,12 +328,64 @@ fun EditProfileScreen(
                     }
                 }
                 Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "Your student email is verified and cannot be modified after registration.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontSize = 11.sp
-                )
+                if (isVerified) {
+                    Text(
+                        text = "Your student email is verified and cannot be modified after registration.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontSize = 11.sp
+                    )
+                } else {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "This email is not yet confirmed. Please verify your student email to ensure campus trust.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFD97706),
+                            fontSize = 11.sp
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(
+                                onClick = {
+                                    if (!isResending) {
+                                        isResending = true
+                                        resendFeedback = null
+                                        scope.launch {
+                                            val result = authViewModel?.resendVerificationEmail()
+                                            isResending = false
+                                            if (result?.isSuccess == true) {
+                                                resendFeedback = true to "Verification link sent! Check your inbox."
+                                            } else {
+                                                resendFeedback = false to (result?.exceptionOrNull()?.message ?: "Failed to resend.")
+                                            }
+                                        }
+                                    }
+                                },
+                                enabled = !isResending,
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                if (isResending) {
+                                    CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Sending...", fontSize = 12.sp)
+                                } else {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Resend verification email", fontSize = 12.sp)
+                                }
+                            }
+                        }
+                        resendFeedback?.let { (success, message) ->
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = message,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (success) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
             }
 
             // ── Display Name field (with 14-day cooldown) ─────────────────────

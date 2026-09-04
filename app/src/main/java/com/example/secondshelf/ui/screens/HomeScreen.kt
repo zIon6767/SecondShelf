@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +46,8 @@ fun HomeScreen(
     userCampus: String = "",
     userUniversity: String = "",
     userAvatarUrl: String = "",
+    targetTab: Int? = null,
+    onTabConsumed: (() -> Unit)? = null,
     onNavigateToNotifications: () -> Unit,
     onNavigateToMarketplace: () -> Unit,
     onNavigateToListing: (String) -> Unit,
@@ -55,8 +58,15 @@ fun HomeScreen(
     onNavigateToEditProfile: () -> Unit,
     onLogout: () -> Unit
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(targetTab) {
+        if (targetTab != null) {
+            selectedTab = targetTab
+            onTabConsumed?.invoke()
+        }
+    }
 
     LaunchedEffect(userId, userName, userEmail, userCampus, userUniversity, userAvatarUrl) {
         viewModel.syncAuthUser(
@@ -791,6 +801,7 @@ private fun ProfileTab(
     var showLogoutDialog by remember { mutableStateOf(false) }
     var isReviewsExpanded by remember { mutableStateOf(false) }
     var isListingsExpanded by remember { mutableStateOf(true) }
+    var isFaqSectionExpanded by remember { mutableStateOf(false) }
     var expandedFaqIndex by remember { mutableIntStateOf(-1) }
 
     val profileFaqList = remember {
@@ -1103,6 +1114,10 @@ private fun ProfileTab(
         Spacer(Modifier.height(24.dp))
 
         // Frequently Asked Questions (FAQ) Section
+        val faqSectionRotation by animateFloatAsState(
+            targetValue = if (isFaqSectionExpanded) 180f else 0f,
+            label = "faqSectionChevron"
+        )
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1112,75 +1127,109 @@ private fun ProfileTab(
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(bottom = 14.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { isFaqSectionExpanded = !isFaqSectionExpanded }
+                        .padding(bottom = if (isFaqSectionExpanded) 14.dp else 0.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.HelpOutline,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = "Frequently Asked Questions",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    IconButton(
+                        onClick = { isFaqSectionExpanded = !isFaqSectionExpanded },
                         modifier = Modifier.size(32.dp)
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.HelpOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                        }
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = if (isFaqSectionExpanded) "Collapse FAQ" else "Expand FAQ",
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .rotate(faqSectionRotation)
+                        )
                     }
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        text = "Frequently Asked Questions",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
                 }
 
-                profileFaqList.forEachIndexed { index, faq ->
-                    val isFaqExpanded = expandedFaqIndex == index
-                    val faqRotation by animateFloatAsState(targetValue = if (isFaqExpanded) 180f else 0f, label = "faqChevron$index")
-
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isFaqExpanded) MaterialTheme.colorScheme.primary.copy(alpha = 0.04f) else MaterialTheme.colorScheme.background,
-                        border = BorderStroke(0.5.dp, if (isFaqExpanded) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f) else Color(0xFFE5E7EB)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                expandedFaqIndex = if (isFaqExpanded) -1 else index
-                            }
+                AnimatedVisibility(visible = isFaqSectionExpanded) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = faq.first,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (isFaqExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.weight(1f).padding(end = 8.dp)
-                                )
-                                Icon(
-                                    imageVector = Icons.Default.KeyboardArrowDown,
-                                    contentDescription = null,
-                                    tint = if (isFaqExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
-                                    modifier = Modifier
-                                        .size(20.dp)
-                                        .rotate(faqRotation)
-                                )
-                            }
+                        profileFaqList.forEachIndexed { index, faq ->
+                            val isFaqExpanded = expandedFaqIndex == index
+                            val faqRotation by animateFloatAsState(targetValue = if (isFaqExpanded) 180f else 0f, label = "faqChevron$index")
 
-                            AnimatedVisibility(visible = isFaqExpanded) {
-                                Column(modifier = Modifier.padding(top = 10.dp)) {
-                                    HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(
-                                        text = faq.second,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        lineHeight = 18.sp
-                                    )
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isFaqExpanded) MaterialTheme.colorScheme.primary.copy(alpha = 0.04f) else MaterialTheme.colorScheme.background,
+                                border = BorderStroke(0.5.dp, if (isFaqExpanded) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f) else Color(0xFFE5E7EB)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        expandedFaqIndex = if (isFaqExpanded) -1 else index
+                                    }
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = faq.first,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isFaqExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.KeyboardArrowDown,
+                                            contentDescription = null,
+                                            tint = if (isFaqExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                                            modifier = Modifier
+                                                .size(20.dp)
+                                                .rotate(faqRotation)
+                                        )
+                                    }
+
+                                    AnimatedVisibility(visible = isFaqExpanded) {
+                                        Column(modifier = Modifier.padding(top = 10.dp)) {
+                                            HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+                                            Spacer(Modifier.height(8.dp))
+                                            Text(
+                                                text = faq.second,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.secondary,
+                                                lineHeight = 18.sp
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

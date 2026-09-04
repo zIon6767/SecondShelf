@@ -12,6 +12,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.secondshelf.BuildConfig
 import com.example.secondshelf.data.SessionManager
 import com.example.secondshelf.supabase
+import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.parseSessionFromUrl
 import io.github.jan.supabase.auth.providers.builtin.Email
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.json.JSONArray
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AuthUiState — represents the result of each auth action
@@ -218,6 +220,26 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         return ""
     }
 
+    /** Checks whether the user's email is confirmed by Supabase and belongs to student.tarc.edu.my */
+    fun isEmailVerified(): Boolean {
+        val user = supabase.auth.currentUserOrNull()
+        val email = getUserEmail().trim().lowercase()
+        val isConfirmed = user?.emailConfirmedAt != null || user?.confirmedAt != null
+        val isStudentDomain = email.endsWith("@student.tarc.edu.my")
+        return isConfirmed && isStudentDomain
+    }
+
+    /** Resend the signup verification email via Supabase */
+    suspend fun resendVerificationEmail(): Result<Unit> {
+        val email = getUserEmail().trim()
+        if (email.isBlank()) {
+            return Result.failure(Exception("No email address found."))
+        }
+        return runCatching {
+            supabase.auth.resendEmail(OtpType.Email.SIGNUP, email)
+        }
+    }
+
     /** Update cached profile info without calling Supabase (used internally) */
     fun setCachedUserProfile(name: String, email: String, campus: String) {
         if (name.isNotBlank())   { cachedFullName = name;   sessionManager.userName  = name  }
@@ -243,10 +265,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     this.password = password
                 }
             }.onSuccess {
-                cachedEmail = email
-                val fullName = getUserFullName().ifBlank { email.substringBefore("@").replace(".", " ") }
-                val campus   = getUserCampus()
-                sessionManager.saveSession(getUserId(), email, fullName, campus)
+                val user = supabase.auth.currentUserOrNull()
+                val uid = user?.id ?: getUserId()
+                val fallbackName = getUserFullName().ifBlank { email.substringBefore("@").replace(".", " ") }
+                restoreProfileFromDatabase(uid, email, fallbackName)
                 _uiState.value = AuthUiState.Success
             }.onFailure { e ->
                 setError(mapSignInError(e))
@@ -365,7 +387,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun signInWithGoogle(context: Context) {
         val oauthUrl = "${BuildConfig.SUPABASE_URL}/auth/v1/authorize" +
             "?provider=google" +
-            "&redirect_to=secondshelf%3A%2F%2Fauth-callback"
+            "&redirect_to=secondshelf%3A%2F%2Fauth-callback" +
+            "&prompt=login"  // always require Google password re-entry
         CustomTabsIntent.Builder()
             .setShowTitle(true)
             .build()
@@ -401,17 +424,65 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     "Student"
                 }
 
-                val uid    = user?.id ?: getUserId()
-                val campus = getUserCampus()
-
-                cachedEmail    = email
-                cachedFullName = name
-                sessionManager.saveSession(uid, email, name, campus)
+                val uid = user?.id ?: getUserId()
+                restoreProfileFromDatabase(uid, email, name)
                 _uiState.value = AuthUiState.Success
             }.onFailure { e ->
                 setError("Google sign-in failed: ${e.message}")
             }
         }
+    }
+
+    /**
+     * Restores user profile data from the Supabase 'profiles' table after login so
+     * returning users (including Google sign-in) are not asked to complete their profile again.
+     */
+    private suspend fun restoreProfileFromDatabase(uid: String, fallbackEmail: String, fallbackName: String) {
+        var finalName = fallbackName
+        var finalCampus = ""
+        var finalUni = "TAR UMT"
+        var finalAvatar = ""
+
+        runCatching {
+            val response = supabase.postgrest.from("profiles").select {
+                filter { eq("id", uid) }
+            }
+            val array = JSONArray(response.data)
+            if (array.length() > 0) {
+                val obj = array.getJSONObject(0)
+                val pName = obj.optString("name", "").trim()
+                val pCampus = obj.optString("campus", "").trim()
+                val pUni = obj.optString("university", "TAR UMT").trim()
+                val pAvatar = obj.optString("avatar_url", "").trim()
+                if (pName.isNotBlank() && pName != "null" && pName != "Student") {
+                    finalName = pName
+                }
+                if (pCampus.isNotBlank() && pCampus != "null") {
+                    finalCampus = pCampus
+                }
+                if (pUni.isNotBlank() && pUni != "null") {
+                    finalUni = pUni
+                }
+                if (pAvatar.isNotBlank() && pAvatar != "null") {
+                    finalAvatar = pAvatar
+                }
+            }
+        }
+
+        if (finalCampus.isBlank()) {
+            val user = supabase.auth.currentUserOrNull()
+            val metaCampus = user?.userMetadata?.get("campus")?.toString()?.trim('"')
+            if (!metaCampus.isNullOrBlank() && metaCampus != "null") {
+                finalCampus = metaCampus
+            }
+        }
+
+        cachedEmail = fallbackEmail
+        cachedFullName = finalName
+        cachedCampus = finalCampus
+        if (finalAvatar.isNotBlank()) cachedAvatarUrl = finalAvatar
+        sessionManager.saveSession(uid, fallbackEmail, finalName, finalCampus, finalUni)
+        if (finalAvatar.isNotBlank()) sessionManager.avatarUrl = finalAvatar
     }
 
     // ─────────────────────────────────────────────────────────────────────────

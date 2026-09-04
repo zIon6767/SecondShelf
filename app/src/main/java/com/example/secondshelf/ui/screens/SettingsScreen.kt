@@ -241,15 +241,6 @@ fun ChatSettingsScreen(
     var inAppSound by remember { mutableStateOf(prefs.getBoolean("in_app_sound", true)) }
     var readReceipts by remember { mutableStateOf(prefs.getBoolean("read_receipts", true)) }
     var onlineStatus by remember { mutableStateOf(prefs.getBoolean("online_status", true)) }
-    var autoReplyEnabled by remember { mutableStateOf(prefs.getBoolean("auto_reply_enabled", false)) }
-    var autoReplyText by remember {
-        mutableStateOf(
-            prefs.getString(
-                "auto_reply_text",
-                "Hi! Thanks for reaching out about my listing. I will get back to you as soon as I can!"
-            ) ?: "Hi! Thanks for reaching out about my listing. I will get back to you as soon as I can!"
-        )
-    }
 
     // Dynamic cache size calculation
     var cacheSizeText by remember {
@@ -273,9 +264,7 @@ fun ChatSettingsScreen(
     // Dialog control states
     var showClearCacheDialog by remember { mutableStateOf(false) }
     var showBlockedAccountsDialog by remember { mutableStateOf(false) }
-    var showAutoReplyEditDialog by remember { mutableStateOf(false) }
     var showAddBlockDialog by remember { mutableStateOf(false) }
-    var tempAutoReply by remember { mutableStateOf(autoReplyText) }
     var newBlockId by remember { mutableStateOf("") }
 
     // Dialog 1: Clear Cache Confirmation
@@ -314,50 +303,7 @@ fun ChatSettingsScreen(
         )
     }
 
-    // Dialog 2: Auto Reply Edit
-    if (showAutoReplyEditDialog) {
-        AlertDialog(
-            onDismissRequest = { showAutoReplyEditDialog = false },
-            icon = {
-                Icon(Icons.Outlined.SmartToy, contentDescription = null, tint = Color(0xFF5856D6))
-            },
-            title = {
-                Text("Customize Auto-Greeting", fontWeight = FontWeight.Bold)
-            },
-            text = {
-                Column {
-                    Text("This automated message will be sent when a student first inquiries about your items:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = tempAutoReply,
-                        onValueChange = { tempAutoReply = it },
-                        label = { Text("Greeting Message") },
-                        maxLines = 4,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (tempAutoReply.isNotBlank()) {
-                            autoReplyText = tempAutoReply.trim()
-                            prefs.edit().putString("auto_reply_text", autoReplyText).apply()
-                            viewModel.showToast("Greeting message updated!")
-                        }
-                        showAutoReplyEditDialog = false
-                    }
-                ) {
-                    Text("Save")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAutoReplyEditDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
+
 
     // Dialog 3: Blocked Accounts List
     if (showBlockedAccountsDialog) {
@@ -568,58 +514,7 @@ fun ChatSettingsScreen(
                 }
             }
 
-            Column {
-                SettingsSectionTitle("Automated Responses")
-                SettingsGroup {
-                    ChatToggleRow(
-                        icon = Icons.Outlined.SmartToy,
-                        iconColor = Color(0xFF5856D6),
-                        title = "Instant Inquiry Greeting",
-                        subtitle = "Auto-reply when a student first messages about your listing",
-                        checked = autoReplyEnabled
-                    ) {
-                        autoReplyEnabled = it
-                        prefs.edit().putBoolean("auto_reply_enabled", it).apply()
-                        viewModel.showToast(if (it) "Auto-greeting enabled" else "Auto-greeting disabled")
-                    }
 
-                    AnimatedVisibility(visible = autoReplyEnabled) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                                .padding(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Greeting Message Template", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color(0xFF5856D6))
-                                TextButton(
-                                    onClick = {
-                                        tempAutoReply = autoReplyText
-                                        showAutoReplyEditDialog = true
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                                ) {
-                                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("Edit", fontSize = 12.sp)
-                                }
-                            }
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                "\"$autoReplyText\"",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                lineHeight = 18.sp
-                            )
-                        }
-                    }
-                }
-            }
 
             Column {
                 SettingsSectionTitle("Data & Safety")

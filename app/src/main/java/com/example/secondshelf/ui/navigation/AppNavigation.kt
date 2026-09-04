@@ -38,9 +38,7 @@ fun AppNavigation(authCallbackUri: Uri? = null, marketplaceViewModel: Marketplac
                     popUpTo(0) { inclusive = true }
                 }
             } else {
-                navController.navigate("complete_profile") {
-                    popUpTo(0) { inclusive = true }
-                }
+                navController.navigate("complete_profile")
             }
         }
     }
@@ -89,7 +87,7 @@ fun AppNavigation(authCallbackUri: Uri? = null, marketplaceViewModel: Marketplac
                     if (authViewModel.isProfileComplete()) {
                         navController.navigate("home") { popUpTo(0) { inclusive = true } }
                     } else {
-                        navController.navigate("complete_profile") { popUpTo(0) { inclusive = true } }
+                        navController.navigate("complete_profile")
                     }
                 },
                 onNavigateToRegister = { navController.navigate("register") }
@@ -110,7 +108,7 @@ fun AppNavigation(authCallbackUri: Uri? = null, marketplaceViewModel: Marketplac
                     if (authViewModel.isProfileComplete()) {
                         navController.navigate("home") { popUpTo(0) { inclusive = true } }
                     } else {
-                        navController.navigate("complete_profile") { popUpTo(0) { inclusive = true } }
+                        navController.navigate("complete_profile")
                     }
                 }
             )
@@ -128,6 +126,12 @@ fun AppNavigation(authCallbackUri: Uri? = null, marketplaceViewModel: Marketplac
                 marketplaceViewModel = marketplaceViewModel,
                 onNavigateToHome = {
                     navController.navigate("home") { popUpTo(0) { inclusive = true } }
+                },
+                onNavigateBack = {
+                    if (!navController.popBackStack()) {
+                        authViewModel.signOut()
+                        navController.navigate("login") { popUpTo(0) { inclusive = true } }
+                    }
                 }
             )
         }
@@ -153,7 +157,8 @@ fun AppNavigation(authCallbackUri: Uri? = null, marketplaceViewModel: Marketplac
             )
         }
 
-        composable("home") {
+        composable("home") { backStackEntry ->
+            val targetTab = backStackEntry.savedStateHandle.get<Int>("selected_tab")
             HomeScreen(
                 viewModel = marketplaceViewModel,
                 userId = authViewModel.getUserId(),
@@ -162,6 +167,8 @@ fun AppNavigation(authCallbackUri: Uri? = null, marketplaceViewModel: Marketplac
                 userCampus = authViewModel.getUserCampus(),
                 userUniversity = authViewModel.getUserUniversity(),
                 userAvatarUrl = authViewModel.cachedAvatarUrl,
+                targetTab = targetTab,
+                onTabConsumed = { backStackEntry.savedStateHandle.remove<Int>("selected_tab") },
                 onNavigateToNotifications = { navController.navigate("notifications") },
                 onNavigateToMarketplace = { navController.navigate("marketplace") },
                 onNavigateToListing = { id -> navController.navigate("listing/$id") },
@@ -233,7 +240,12 @@ fun AppNavigation(authCallbackUri: Uri? = null, marketplaceViewModel: Marketplac
         composable("settings") {
             SettingsScreen(
                 viewModel = marketplaceViewModel,
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack = {
+                    navController.previousBackStackEntry?.savedStateHandle?.set("selected_tab", 3)
+                    if (!navController.popBackStack()) {
+                        navController.navigate("home")
+                    }
+                },
                 onNavigateToEditProfile = { navController.navigate("edit_profile") },
                 onNavigateToMyListings = { navController.navigate("create_listing") },
                 onNavigateToSaved = { navController.navigate("saved") },
