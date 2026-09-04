@@ -146,7 +146,9 @@ fun MessagesScreen(
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(conversations) { conv ->
-                    val resolvedName = resolveParticipantName(conv.participantId, conv.listingId, viewModel)
+                    val resolvedName = conv.participantName.ifBlank {
+                        resolveParticipantName(conv.participantId, conv.listingId, viewModel)
+                    }
                     val listing = viewModel.getListing(conv.listingId)
                     val localMessages = viewModel.getConversationMessages(conv.participantId, conv.listingId)
                     val lastLocalMsg = localMessages.lastOrNull()
@@ -233,11 +235,16 @@ fun MessagesScreen(
                                     }
                                     if (conv.unreadCount > 0) {
                                         Spacer(Modifier.width(8.dp))
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(8.dp)
-                                        ) {}
+                                        Badge(
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                            contentColor = Color.White
+                                        ) {
+                                            Text(
+                                                text = if (conv.unreadCount > 99) "99+" else conv.unreadCount.toString(),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                             }
