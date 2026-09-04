@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.secondshelf.data.ChatRepository
 import com.example.secondshelf.data.marketplace.CreateListingRecord
 import com.example.secondshelf.data.marketplace.ListingRecord
 import com.example.secondshelf.data.marketplace.SellerProfileRecord
@@ -24,7 +25,8 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 
 class MarketplaceViewModel(
-    private val repository: SupabaseMarketplaceRepository = SupabaseMarketplaceRepository()
+    private val repository: SupabaseMarketplaceRepository = SupabaseMarketplaceRepository(),
+    private val chatRepository: ChatRepository = ChatRepository()
 ) : ViewModel() {
 
     init {
@@ -84,6 +86,7 @@ class MarketplaceViewModel(
         )
         if (cleanId != previousId && isSupabaseUserId(cleanId)) {
             refreshMarketplace()
+            loadConversationsFromDb(cleanId)
         }
     }
 
@@ -140,6 +143,22 @@ class MarketplaceViewModel(
 
     var conversations by mutableStateOf(initialConversations)
         private set
+
+    /**
+     * Fetches the user's conversation history from Supabase and populates the
+     * [conversations] list shown on the Messages screen. Safe to call multiple
+     * times; always replaces the current list with the freshest data.
+     */
+    fun loadConversationsFromDb(userId: String) {
+        if (userId.isBlank()) return
+        viewModelScope.launch {
+            val loaded = runCatching { chatRepository.loadConversations(userId) }
+                .getOrDefault(emptyList())
+            if (loaded.isNotEmpty()) {
+                conversations = loaded
+            }
+        }
+    }
 
     var homeCategory by mutableStateOf(Category.ALL)
 

@@ -2,6 +2,7 @@ package com.example.secondshelf.data
 
 import com.example.secondshelf.supabase
 import com.example.secondshelf.ui.model.ChatMessage
+import com.example.secondshelf.ui.model.Conversation
 import com.example.secondshelf.ui.model.PresenceState
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Order
@@ -56,6 +57,46 @@ class ChatRepository {
                 order("created_at", Order.ASCENDING)
             }
             .decodeList<ChatMessage>()
+    }.getOrDefault(emptyList())
+
+    /**
+     * Loads all conversation threads for [myId] by fetching every message
+     * where the user is sender or receiver, then grouping by (listingId + opponent).
+     * Returns the most-recent conversations first.
+     */
+    suspend fun loadConversations(myId: String): List<Conversation> = runCatching {
+        val messages = supabase.postgrest.from("messages")
+            .select {
+                filter {
+                    or {
+                        eq("sender_id", myId)
+                        eq("receiver_id", myId)
+                    }
+                }
+                order(column = "created_at", order = Order.DESCENDING)
+            }
+            .decodeList<ChatMessage>()
+
+        messages
+            .groupBy { msg ->
+                val otherId = if (msg.senderId == myId) msg.receiverId else msg.senderId
+                "${msg.listingId}_$otherId"
+            }
+            .map { (_, msgs) ->
+                val latest = msgs.first()
+                val otherId = if (latest.senderId == myId) latest.receiverId else latest.senderId
+                val unreadCount = msgs.count {
+                    it.senderId == otherId && it.receiverId == myId && !it.isRead
+                }
+                Conversation(
+                    id = "${latest.listingId}_$otherId",
+                    participantId = otherId,
+                    listingId = latest.listingId,
+                    lastMessage = latest.content,
+                    lastTimestamp = latest.createdAt,
+                    unreadCount = unreadCount
+                )
+            }
     }.getOrDefault(emptyList())
 
     // ── Write ─────────────────────────────────────────────────────────────────
