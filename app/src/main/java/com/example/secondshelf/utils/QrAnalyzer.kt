@@ -1,5 +1,6 @@
 package com.example.secondshelf.utils
 
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
@@ -13,9 +14,8 @@ class QrAnalyzer(
     private val onQrCodeScanned: (String) -> Unit
 ) : ImageAnalysis.Analyzer {
 
-    //configure ML Kit to only look for QR codes to save battery and processing power
     private val options = BarcodeScannerOptions.Builder()
-        .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+        .setBarcodeFormats(Barcode.FORMAT_QR_CODE, Barcode.FORMAT_ALL_FORMATS)
         .build()
 
     private val scanner = BarcodeScanning.getClient(options)
@@ -28,18 +28,19 @@ class QrAnalyzer(
 
             scanner.process(image)
                 .addOnSuccessListener { barcodes ->
-                    //if QR code is found, extract the raw value
                     for (barcode in barcodes) {
-                        barcode.rawValue?.let { qrValue ->
+                        val qrValue = barcode.rawValue ?: barcode.displayValue
+                        if (!qrValue.isNullOrBlank()) {
+                            Log.d("QrAnalyzer", "Scanned QR Value: $qrValue")
                             onQrCodeScanned(qrValue)
+                            break
                         }
                     }
                 }
-                .addOnFailureListener {
-                    //handle failures if necessary
+                .addOnFailureListener { e ->
+                    Log.e("QrAnalyzer", "Barcode scan failure", e)
                 }
                 .addOnCompleteListener {
-                    //close the imageProxy to receive the next frame
                     imageProxy.close()
                 }
         } else {

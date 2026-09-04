@@ -216,7 +216,8 @@ fun AppNavigation(
                     navController.navigate("conversation/$participantId/$lid")
                 },
                 onViewSeller = { /* seller info shown in detail */ },
-                onEditListing = { id -> navController.navigate("edit_listing/$id") }
+                onEditListing = { id -> navController.navigate("edit_listing/$id") },
+                onNavigateToScanner = { navController.navigate("scanner_route") }
             )
         }
 
@@ -328,7 +329,8 @@ fun AppNavigation(
                 viewModel = marketplaceViewModel,
                 chatViewModel = chatViewModel,
                 currentUserId = authViewModel.getUserId(),
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToScanner = { navController.navigate("scanner_route") }
             )
         }
 
@@ -341,7 +343,6 @@ fun AppNavigation(
         }
 
         composable("scanner_route") {
-            //setup the ViewModel with your Supabase client
             val repository = androidx.compose.runtime.remember {
                 com.example.secondshelf.data.TransactionRepository(com.example.secondshelf.supabase)
             }
@@ -353,24 +354,33 @@ fun AppNavigation(
                 }
             )
 
-            //watch the state from the ViewModel
             val scanState by transactionViewModel.scanState.collectAsState()
+            val context = androidx.compose.ui.platform.LocalContext.current
 
-            //listen for the success state to trigger navigation
+            LaunchedEffect(Unit) {
+                transactionViewModel.resetScanState()
+            }
+
             LaunchedEffect(scanState) {
-                if (scanState is com.example.secondshelf.ui.viewmodel.ScanState.Success) {
-                    navController.navigate("handoff_success_route") {
-                        popUpTo("scanner_route") { inclusive = true }
+                when (val state = scanState) {
+                    is com.example.secondshelf.ui.viewmodel.ScanState.Success -> {
+                        marketplaceViewModel.refreshMarketplace()
+                        navController.navigate("handoff_success_route") {
+                            popUpTo("scanner_route") { inclusive = true }
+                        }
+                        transactionViewModel.resetScanState()
                     }
-                    transactionViewModel.resetScanState()
+                    is com.example.secondshelf.ui.viewmodel.ScanState.Error -> {
+                        android.widget.Toast.makeText(context, state.message, android.widget.Toast.LENGTH_SHORT).show()
+                        transactionViewModel.resetScanState()
+                    }
+                    else -> {}
                 }
             }
 
-            //pass the action into the screen
             QrScannerScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onQrScanned = { scannedString ->
-                    // Use your existing AuthViewModel to get the ID!
                     val currentUserId = authViewModel.getUserId()
                     transactionViewModel.verifyQrCode(scannedString, currentUserId)
                 }
@@ -379,9 +389,8 @@ fun AppNavigation(
 
         composable("handoff_success_route") {
             SuccessScreen(
-                onRateTransaction = { rating ->},
                 onBackToHome = {
-                    navController.navigate("home"){
+                    navController.navigate("home") {
                         popUpTo(0) { inclusive = true }
                     }
                 }

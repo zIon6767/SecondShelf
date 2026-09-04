@@ -7,7 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.Preview as CameraXPreview //aliased to avoid clash with compose preview
+import androidx.camera.core.Preview as CameraXPreview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
@@ -50,7 +50,6 @@ fun QrScannerScreen(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        //render a safe placeholder if in preview, otherwise load the real camera inline
         if (isInspectionMode) {
             Box(
                 modifier = Modifier
@@ -61,7 +60,6 @@ fun QrScannerScreen(
                 Text("Camera Feed Placeholder", color = Color.White)
             }
         } else {
-            //inline camera logic
             val context = LocalContext.current
             val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -83,6 +81,12 @@ fun QrScannerScreen(
             }
 
             if (hasCameraPermission) {
+                var camera by remember { mutableStateOf<androidx.camera.core.Camera?>(null) }
+
+                LaunchedEffect(isFlashlightOn) {
+                    camera?.cameraControl?.enableTorch(isFlashlightOn)
+                }
+
                 AndroidView(
                     factory = { ctx ->
                         val previewView = PreviewView(ctx)
@@ -107,7 +111,7 @@ fun QrScannerScreen(
                             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
                             try {
                                 cameraProvider.unbindAll()
-                                cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageAnalysis)
+                                camera = cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageAnalysis)
                             } catch (exc: Exception) {
                                 Log.e("ScannerScreen", "Use case binding failed", exc)
                             }
@@ -124,12 +128,11 @@ fun QrScannerScreen(
             }
         }
 
-        //ui overlay
+        // UI overlay
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            //top bar (back and flashlight)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -162,7 +165,6 @@ fun QrScannerScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            //scanner box
             Box(
                 modifier = Modifier
                     .size(280.dp)
@@ -181,7 +183,6 @@ fun QrScannerScreen(
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            //instruction card
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -202,7 +203,7 @@ fun QrScannerScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Align the buyer's QR code within the frame to verify the handoff.",
+                        text = "Align the seller's QR code within the frame to verify the transaction.",
                         fontSize = 14.sp,
                         color = Color.DarkGray,
                         textAlign = TextAlign.Center

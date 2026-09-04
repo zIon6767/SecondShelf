@@ -35,12 +35,11 @@ fun ListingDetailScreen(
     onNavigateBack: () -> Unit,
     onContactSeller: (participantId: String, listingId: String) -> Unit,
     onViewSeller: (sellerId: String) -> Unit,
-    onEditListing: (String) -> Unit = {}
-
+    onEditListing: (String) -> Unit = {},
+    onNavigateToScanner: () -> Unit = {}
 ) {
-    //QR CODE TESTING REMOVE LATER
-    var showTestQr by remember { mutableStateOf(false) }
-    //-------------------------------------------------------------------
+    var showQrPass by remember { mutableStateOf(false) }
+    var qrPassToken by remember { mutableStateOf<String?>(null) }
     val listing = viewModel.getListing(listingId)
     val context = LocalContext.current
 
@@ -231,25 +230,44 @@ fun ListingDetailScreen(
                         Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFFD1D5DB))
                     }
                 }
-                //QR CODE TESTING REMOVE LATER
+                // ── QR Pickup Pass / Handoff Action ──
                 Spacer(Modifier.height(20.dp))
-                Button(
-                    onClick = { showTestQr = true },
+                OutlinedButton(
+                    onClick = {
+                        if (isOwnListing) {
+                            viewModel.createHandoffToken(
+                                listingId = listing.id,
+                                buyerId = viewModel.currentUser.id,
+                                sellerId = listing.sellerId
+                            ) { token ->
+                                qrPassToken = token
+                                showQrPass = true
+                            }
+                        } else {
+                            onNavigateToScanner()
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("TEST: Generate QR", color = Color.White)
+                    Icon(
+                        imageVector = if (isOwnListing) Icons.Default.QrCode2 else Icons.Default.QrCodeScanner,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (isOwnListing) "Display Pickup QR Code" else "Scan Seller's QR Code")
                 }
             }
-            if (showTestQr) {
+            if (showQrPass) {
                 androidx.compose.ui.window.Dialog(
-                    onDismissRequest = { showTestQr = false },
+                    onDismissRequest = { showQrPass = false },
                     properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
                 ) {
                     Surface(modifier = Modifier.fillMaxSize()) {
                         QrScreen(
-                            onNavigateBack = { showTestQr = false },
-                            transactionToken = "test123", // Matches your Supabase row
+                            onNavigateBack = { showQrPass = false },
+                            transactionToken = qrPassToken ?: listing.id,
                             itemName = listing.title,
                             price = formatPrice(listing.price),
                             sellerName = listing.sellerName
@@ -257,7 +275,6 @@ fun ListingDetailScreen(
                     }
                 }
             }
-            //---------------------------------------------------------
         }
 
         Surface(shadowElevation = 8.dp, color = MaterialTheme.colorScheme.background) {

@@ -1,14 +1,10 @@
 package com.example.secondshelf.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,20 +16,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.secondshelf.ui.theme.PrimaryBlue
-import com.example.secondshelf.ui.theme.StarGold
 import com.example.secondshelf.ui.theme.SuccessGreen
 
 @Composable
 fun SuccessScreen(
-    onRateTransaction: (Int) -> Unit, //updated to pass the rating integer
     onBackToHome: () -> Unit,
-    itemName: String = "Engineering Calculus Textbook",
-    finalPrice: String = "RM 40"
+    onRateTransaction: ((Int) -> Unit)? = null,
+    itemName: String = "",
+    finalPrice: String = ""
 ) {
-    //state to track selected stars
-    var currentRating by remember { mutableIntStateOf(0) }
-    val interactionSource = remember { MutableInteractionSource() }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -95,85 +86,39 @@ fun SuccessScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = itemName,
+                        text = itemName.ifBlank { "Item Successfully Sold" },
                         color = Color.Black,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = finalPrice,
-                        color = PrimaryBlue,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (finalPrice.isNotBlank()) {
+                        Text(
+                            text = finalPrice,
+                            color = PrimaryBlue,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            //star rating row
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                for (i in 1..5) {
-                    Icon(
-                        imageVector = if (i <= currentRating) Icons.Default.Star else Icons.Outlined.Star,
-                        contentDescription = "Rate $i stars",
-                        tint = if (i <= currentRating) StarGold else Color.LightGray,
-                        modifier = Modifier
-                            .size(52.dp)
-                            .padding(4.dp)
-                            .clickable(
-                                interactionSource = interactionSource,
-                                indication = null //hides the gray effect
-                            ) {
-                                currentRating = i
-                            }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             Button(
-                onClick = { onRateTransaction(currentRating) },
-                enabled = currentRating > 0, //disables button until they select at least 1 star
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = PrimaryBlue,
-                    disabledContainerColor = Color.LightGray
-                )
-            ) {
-                Text(
-                    text = if (currentRating > 0) "Submit Rating" else "Rate this Transaction",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedButton(
                 onClick = onBackToHome,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
                 shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.DarkGray),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.LightGray)
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
             ) {
                 Text(
                     text = "Back to Home",
                     fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
                 )
             }
         }
@@ -184,7 +129,6 @@ fun SuccessScreen(
 @Composable
 fun HandoffSuccessScreenPreview() {
     SuccessScreen(
-        onRateTransaction = {},
         onBackToHome = {}
     )
 }

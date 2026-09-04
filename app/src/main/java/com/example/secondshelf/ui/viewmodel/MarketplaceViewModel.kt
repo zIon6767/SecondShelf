@@ -761,6 +761,19 @@ class MarketplaceViewModel(
         }
     }
 
+    fun createHandoffToken(
+        listingId: String,
+        buyerId: String,
+        sellerId: String,
+        onTokenReady: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            val transactionRepo = com.example.secondshelf.data.TransactionRepository(supabase)
+            val token = transactionRepo.createHandoff(listingId, buyerId, sellerId) ?: listingId
+            onTokenReady(token)
+        }
+    }
+
     fun clearAllUserData() {
         listings = emptyList()
         favorites = emptySet()

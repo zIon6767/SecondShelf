@@ -256,7 +256,8 @@ fun ConversationScreen(
     participantId: String,
     listingId: String,
     currentUserId: String,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToScanner: () -> Unit = {}
 ) {
     val uiState by chatViewModel.uiState.collectAsState()
     var messageText by remember { mutableStateOf("") }
@@ -295,7 +296,17 @@ fun ConversationScreen(
     var showMenu by remember { mutableStateOf(false) }
     var showBlockConfirmDialog by remember { mutableStateOf(false) }
     var showQrScreen by remember { mutableStateOf(false) }
+    var activeQrToken by remember { mutableStateOf<String?>(null) }
     var isDealDeclined by remember { mutableStateOf(false) }
+
+    fun handleAcceptDeal() {
+        val buyerId = if (isSeller) participantId else currentUserId
+        val sellerId = listing?.sellerId ?: currentUserId
+        viewModel.createHandoffToken(listingId, buyerId, sellerId) { token ->
+            activeQrToken = token
+            showQrScreen = true
+        }
+    }
 
     // ── Initialise chat on first composition ──────────────────────────────────
     LaunchedEffect(participantId, listingId) {
@@ -373,7 +384,7 @@ fun ConversationScreen(
             Surface(modifier = Modifier.fillMaxSize()) {
                 QrScreen(
                     onNavigateBack = { showQrScreen = false },
-                    transactionToken = listing?.id ?: listingId,
+                    transactionToken = activeQrToken ?: listing?.id ?: listingId,
                     itemName = listing?.title ?: "Campus Item",
                     price = if (listing != null) formatPrice(listing.price) else "RM 40",
                     sellerName = uiState.participantName.ifBlank { resolvedSellerName }
@@ -417,10 +428,9 @@ fun ConversationScreen(
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Accept Deal Button (Only visible for the Seller)
                     if (isSeller) {
                         Button(
-                            onClick = { showQrScreen = true },
+                            onClick = { handleAcceptDeal() },
                             shape = RoundedCornerShape(20.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = primary,
@@ -430,7 +440,22 @@ fun ConversationScreen(
                         ) {
                             Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("Accept Deal", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("Show Pickup QR", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        Spacer(Modifier.width(6.dp))
+                    } else {
+                        Button(
+                            onClick = { onNavigateToScanner() },
+                            shape = RoundedCornerShape(20.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = primary,
+                                contentColor = Color.White
+                            ),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Scan QR Code", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
                         Spacer(Modifier.width(6.dp))
                     }
@@ -460,10 +485,10 @@ fun ConversationScreen(
                         ) {
                             if (isSeller) {
                                 DropdownMenuItem(
-                                    text = { Text("Accept Deal (QR Pass)") },
+                                    text = { Text("Show Pickup QR Code") },
                                     onClick = {
                                         showMenu = false
-                                        showQrScreen = true
+                                        handleAcceptDeal()
                                     },
                                     leadingIcon = {
                                         Icon(Icons.Default.QrCode2, contentDescription = null)
@@ -478,6 +503,18 @@ fun ConversationScreen(
                                     },
                                     leadingIcon = {
                                         Icon(Icons.Default.Close, contentDescription = null)
+                                    }
+                                )
+                                HorizontalDivider()
+                            } else {
+                                DropdownMenuItem(
+                                    text = { Text("Scan Seller's QR Code") },
+                                    onClick = {
+                                        showMenu = false
+                                        onNavigateToScanner()
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.QrCodeScanner, contentDescription = null)
                                     }
                                 )
                                 HorizontalDivider()
@@ -552,8 +589,8 @@ fun ConversationScreen(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f), thickness = 1.dp)
 
-        // ── Interactive Deal Action Banner (Only visible for the Seller) ──────
-        if (isSeller && listing != null && !isDealDeclined) {
+        // ── Interactive Deal Action Banner ──────
+        if (listing != null && !isDealDeclined) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -609,16 +646,28 @@ fun ConversationScreen(
                             Text("Deny", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         }
                         Spacer(Modifier.width(6.dp))
-                        // Accept Deal Button
-                        Button(
-                            onClick = { showQrScreen = true },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = primary),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(15.dp))
-                            Spacer(Modifier.width(3.dp))
-                            Text("Accept Deal", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        if (isSeller) {
+                            Button(
+                                onClick = { handleAcceptDeal() },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = primary),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Spacer(Modifier.width(3.dp))
+                                Text("Show Pickup QR", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            Button(
+                                onClick = { onNavigateToScanner() },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = primary),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Spacer(Modifier.width(3.dp))
+                                Text("Scan Seller's QR", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }

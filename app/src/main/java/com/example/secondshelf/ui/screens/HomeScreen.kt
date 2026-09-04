@@ -503,24 +503,19 @@ private fun HomeTab(
                 }
             }
 
-            //qr code testing remove laterrr
+            // ── QR Handoff Scanner Action ──
             Spacer(Modifier.height(14.dp))
-            Button(
-                onClick = {
-                    onNavigateToScanner()
-                    // This directly triggers the route we defined in AppNavigation
-                    // Make sure you have "scanner_route" wired up in your NavGraph!
-                },
+            OutlinedButton(
+                onClick = { onNavigateToScanner() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = Color.White)
+                Icon(Icons.Default.QrCodeScanner, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("TEST: Open QR Scanner", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Scan Seller's QR Code", fontWeight = FontWeight.SemiBold)
             }
-            // ---------------------------------
 
             Spacer(Modifier.height(18.dp))
 
