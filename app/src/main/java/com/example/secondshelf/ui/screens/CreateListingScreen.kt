@@ -1,5 +1,7 @@
 package com.example.secondshelf.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -22,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.example.secondshelf.ui.model.Category
 import com.example.secondshelf.ui.model.Condition
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
@@ -103,6 +106,16 @@ fun CreateListingScreen(
                 imageBytes = null
                 error = it.message ?: "Could not process the captured photo"
             }
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            cameraLauncher.launch(null)
+        } else {
+            error = "Camera permission is required to take a photo"
         }
     }
 
@@ -199,7 +212,18 @@ fun CreateListingScreen(
                         Text("Gallery")
                     }
                     Button(
-                        onClick = { cameraLauncher.launch(null) },
+                        onClick = {
+                            if (
+                                ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.CAMERA
+                                ) == PackageManager.PERMISSION_GRANTED
+                            ) {
+                                cameraLauncher.launch(null)
+                            } else {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp)
                     ) {
