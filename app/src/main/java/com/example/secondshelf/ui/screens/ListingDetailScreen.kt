@@ -235,14 +235,7 @@ fun ListingDetailScreen(
                 OutlinedButton(
                     onClick = {
                         if (isOwnListing) {
-                            viewModel.createHandoffToken(
-                                listingId = listing.id,
-                                buyerId = viewModel.currentUser.id,
-                                sellerId = listing.sellerId
-                            ) { token ->
-                                qrPassToken = token
-                                showQrPass = true
-                            }
+                            viewModel.showToast("Open a buyer conversation to generate their pickup QR.")
                         } else {
                             onNavigateToScanner()
                         }
@@ -259,7 +252,7 @@ fun ListingDetailScreen(
                     Text(if (isOwnListing) "Display Pickup QR Code" else "Scan Seller's QR Code")
                 }
             }
-            if (showQrPass) {
+            if (showQrPass && qrPassToken != null) {
                 androidx.compose.ui.window.Dialog(
                     onDismissRequest = { showQrPass = false },
                     properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
@@ -267,10 +260,13 @@ fun ListingDetailScreen(
                     Surface(modifier = Modifier.fillMaxSize()) {
                         QrScreen(
                             onNavigateBack = { showQrPass = false },
-                            transactionToken = qrPassToken ?: listing.id,
+                            transactionToken = qrPassToken!!,
                             itemName = listing.title,
                             price = formatPrice(listing.price),
-                            sellerName = listing.sellerName
+                            sellerName = listing.sellerName,
+                            onHandoffComplete = {
+                                viewModel.refreshMarketplace()
+                            }
                         )
                     }
                 }
