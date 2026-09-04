@@ -174,10 +174,6 @@ fun ConversationScreen(
     }
 
     var showRatingDialog by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-    val chatPrefs = remember { context.getSharedPreferences("second_shelf_chat_settings", Context.MODE_PRIVATE) }
-    val showMeetupSafety = remember { chatPrefs.getBoolean("campus_meetup_alerts", true) }
-    val enterIsSend = remember { chatPrefs.getBoolean("enter_is_send", false) }
 
     if (showRatingDialog) {
         com.example.secondshelf.ui.components.RatingReviewDialog(
@@ -280,32 +276,6 @@ fun ConversationScreen(
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f), thickness = 1.dp)
-
-        if (showMeetupSafety) {
-            Surface(
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.07f),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Outlined.Security,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        "Campus safety tip: Complete deals at public campus spots (Library Lobby, Canteen).",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 11.sp
-                    )
-                }
-            }
-        }
 
         // ── Message list ──────────────────────────────────────────────────────
         if (uiState.messages.isEmpty()) {
@@ -435,18 +405,7 @@ fun ConversationScreen(
                     placeholder = { Text("Type a message…") },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(24.dp),
-                    singleLine = !enterIsSend,
-                    keyboardOptions = KeyboardOptions(
-                        imeAction = if (enterIsSend) ImeAction.Send else ImeAction.Default
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onSend = {
-                            if (messageText.isNotBlank() && !uiState.isSending) {
-                                chatViewModel.sendMessage(messageText)
-                                messageText = ""
-                            }
-                        }
-                    )
+                    singleLine = true
                 )
                 Spacer(Modifier.width(8.dp))
                 FilledIconButton(

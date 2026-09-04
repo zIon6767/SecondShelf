@@ -233,13 +233,8 @@ fun ChatSettingsScreen(
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val view = LocalView.current
     val prefs = remember { context.getSharedPreferences("second_shelf_chat_settings", Context.MODE_PRIVATE) }
 
-    var enterIsSend by remember { mutableStateOf(prefs.getBoolean("enter_is_send", false)) }
-    var autoDownloadMedia by remember { mutableStateOf(prefs.getBoolean("auto_download_media", true)) }
-    var campusMeetupAlerts by remember { mutableStateOf(prefs.getBoolean("campus_meetup_alerts", true)) }
-    var scamProtection by remember { mutableStateOf(prefs.getBoolean("scam_protection", true)) }
     var readReceipts by remember { mutableStateOf(prefs.getBoolean("read_receipts", true)) }
     var onlineStatus by remember { mutableStateOf(prefs.getBoolean("online_status", true)) }
 
@@ -443,68 +438,10 @@ fun ChatSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             Column {
-                SettingsSectionTitle("Chat & Input")
-                SettingsGroup {
-                    ChatToggleRow(
-                        icon = Icons.Default.Send,
-                        iconColor = Color(0xFF007AFF),
-                        title = "Send on Enter",
-                        subtitle = "Press Enter on keyboard to immediately send messages",
-                        checked = enterIsSend
-                    ) {
-                        enterIsSend = it
-                        prefs.edit().putBoolean("enter_is_send", it).apply()
-                        viewModel.showToast(if (it) "Send on Enter enabled" else "Send on Enter disabled")
-                    }
-                    HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
-                    ChatToggleRow(
-                        icon = Icons.Outlined.Download,
-                        iconColor = Color(0xFF34C759),
-                        title = "Auto-Download Item Photos",
-                        subtitle = "Automatically load photos and deal images in chats",
-                        checked = autoDownloadMedia
-                    ) {
-                        autoDownloadMedia = it
-                        prefs.edit().putBoolean("auto_download_media", it).apply()
-                        viewModel.showToast(if (it) "Media auto-download enabled" else "Media auto-download disabled")
-                    }
-                }
-            }
-
-            Column {
-                SettingsSectionTitle("Campus Safety & Trade Protection")
-                SettingsGroup {
-                    ChatToggleRow(
-                        icon = Icons.Outlined.School,
-                        iconColor = Color(0xFF5856D6),
-                        title = "Campus Meetup Reminders",
-                        subtitle = "Show reminder to meetup at designated public campus spots",
-                        checked = campusMeetupAlerts
-                    ) {
-                        campusMeetupAlerts = it
-                        prefs.edit().putBoolean("campus_meetup_alerts", it).apply()
-                        viewModel.showToast(if (it) "Meetup safety reminders enabled" else "Meetup safety reminders disabled")
-                    }
-                    HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
-                    ChatToggleRow(
-                        icon = Icons.Outlined.Security,
-                        iconColor = Color(0xFFFF9500),
-                        title = "Payment Scam Protection",
-                        subtitle = "Alert on suspicious external links or non-campus payment requests",
-                        checked = scamProtection
-                    ) {
-                        scamProtection = it
-                        prefs.edit().putBoolean("scam_protection", it).apply()
-                        viewModel.showToast(if (it) "Payment scam protection active" else "Payment scam protection paused")
-                    }
-                }
-            }
-
-            Column {
                 SettingsSectionTitle("Privacy & Status")
                 SettingsGroup {
                     ChatToggleRow(
-                        icon = Icons.Outlined.DoneAll,
+                        icon = Icons.Outlined.Check,
                         iconColor = Color(0xFF34C759),
                         title = "Read Receipts",
                         subtitle = "Let buyers and sellers know when you've seen their messages",
