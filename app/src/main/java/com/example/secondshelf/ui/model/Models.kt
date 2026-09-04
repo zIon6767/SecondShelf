@@ -23,6 +23,7 @@ enum class Condition(val label: String) {
 
 enum class SortOption(val label: String) {
     NEWEST("Newest"),
+    OLDEST("Oldest"),
     PRICE_ASC("Price: Low to High"),
     PRICE_DESC("Price: High to Low"),
     RELEVANCE("Relevance")
@@ -110,7 +111,9 @@ data class ListingFilters(
     val category: Category = Category.ALL,
     val condition: Condition? = null,
     val sort: SortOption = SortOption.NEWEST,
-    val query: String = ""
+    val query: String = "",
+    val minPrice: Int? = null,
+    val maxPrice: Int? = null
 )
 
 fun formatPrice(price: Int) = "RM $price"
