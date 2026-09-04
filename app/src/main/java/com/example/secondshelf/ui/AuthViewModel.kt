@@ -346,7 +346,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun signInWithGoogle(context: Context) {
         val oauthUrl = "${BuildConfig.SUPABASE_URL}/auth/v1/authorize" +
             "?provider=google" +
-            "&redirect_to=secondshelf%3A%2F%2Fauth-callback"
+            "&redirect_to=secondshelf%3A%2F%2Fauth-callback" +
+            "&query_params=%7B%22prompt%22%3A%22select_account%22%7D"
         CustomTabsIntent.Builder()
             .setShowTitle(true)
             .build()
