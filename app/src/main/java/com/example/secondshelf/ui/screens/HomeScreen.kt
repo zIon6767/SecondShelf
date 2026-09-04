@@ -159,6 +159,7 @@ fun HomeScreen(
                     onNavigateToNotifications = onNavigateToNotifications,
                     onNavigateToListing = onNavigateToListing,
                     onNavigateToCreateListing = onNavigateToCreateListing,
+                    onNavigateToMarketplace = onNavigateToMarketplace,
                     onNavigateToProfile = { selectedTab = 3 },
                     onNavigateToScanner = onNavigateToScanner //qr code testing remove later
                 )
@@ -429,6 +430,7 @@ private fun HomeTab(
     onNavigateToNotifications: () -> Unit,
     onNavigateToListing: (String) -> Unit,
     onNavigateToCreateListing: () -> Unit,
+    onNavigateToMarketplace: () -> Unit,
     onNavigateToProfile: () -> Unit,
     //qr code testing remove later
     onNavigateToScanner: () -> Unit
@@ -436,13 +438,9 @@ private fun HomeTab(
 ) {
     val user = viewModel.currentUser
     val displayName = user.name.ifBlank { if (userName.isNotBlank() && userName != "User") userName else "Student" }
-    var searchQuery by remember { mutableStateOf("") }
     val category = viewModel.homeCategory
     val filtered = viewModel.filterListings(
-        ListingFilters(
-            category = category,
-            query = searchQuery
-        )
+        ListingFilters(category = category)
     )
     val unreadCount = viewModel.getUnreadNotificationCount()
 
@@ -467,65 +465,40 @@ private fun HomeTab(
         ) {
             Spacer(Modifier.height(14.dp))
 
-            // ── Live In-Place Search Bar ──
+            // ── Marketplace Search Entry ──
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = 20.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable(onClick = onNavigateToMarketplace),
                 shape = RoundedCornerShape(14.dp),
                 color = Color.White,
                 border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
                 shadowElevation = 1.dp
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 2.dp),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         Icons.Outlined.Search,
-                        contentDescription = "Search",
-                        tint = if (searchQuery.isNotEmpty()) MaterialTheme.colorScheme.primary else Color(0xFF8E8E93),
+                        contentDescription = null,
+                        tint = Color(0xFF8E8E93),
                         modifier = Modifier.size(22.dp)
                     )
-                    Spacer(Modifier.width(8.dp))
-                    TextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        placeholder = {
-                            Text(
-                                text = "Search textbooks, calculators, tech...",
-                                color = Color(0xFF8E8E93),
-                                fontSize = 14.sp
-                            )
-                        },
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            disabledContainerColor = Color.Transparent,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                            cursorColor = MaterialTheme.colorScheme.primary
-                        ),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                        trailingIcon = if (searchQuery.isNotEmpty()) {
-                            {
-                                IconButton(
-                                    onClick = { searchQuery = "" },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Close,
-                                        contentDescription = "Clear Search",
-                                        tint = Color(0xFF8E8E93),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        } else null,
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = "Search textbooks, calculators, tech...",
+                        color = Color(0xFF8E8E93),
+                        fontSize = 14.sp,
                         modifier = Modifier.weight(1f)
+                    )
+                    Icon(
+                        Icons.Default.Tune,
+                        contentDescription = "Search and filter marketplace",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
@@ -574,11 +547,7 @@ private fun HomeTab(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = when {
-                        searchQuery.isNotBlank() -> "Results for \"$searchQuery\""
-                        category == Category.ALL -> "Recent Listings"
-                        else -> "${category.label} Listings"
-                    },
+                    text = if (category == Category.ALL) "Recent Listings" else "${category.label} Listings",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -601,8 +570,8 @@ private fun HomeTab(
             // ── Listings Grid ──
             if (filtered.isEmpty()) {
                 EmptyState(
-                    title = if (searchQuery.isNotBlank()) "No items matching \"$searchQuery\"" else "No listings found",
-                    subtitle = if (searchQuery.isNotBlank()) "Try checking the spelling or searching another keyword" else "Try selecting another category"
+                    title = "No listings found",
+                    subtitle = "Try selecting another category"
                 )
             } else {
                 ListingGrid(
