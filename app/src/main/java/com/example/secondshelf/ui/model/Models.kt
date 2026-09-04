@@ -104,7 +104,8 @@ data class Conversation(
     val participantId: String,
     val lastMessage: String,
     val lastTimestamp: String,
-    val unreadCount: Int = 0
+    val unreadCount: Int = 0,
+    val participantName: String = ""
 )
 
 data class ListingFilters(
