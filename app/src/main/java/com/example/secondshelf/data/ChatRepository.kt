@@ -35,13 +35,20 @@ class ChatRepository {
 
     private var channel: RealtimeChannel? = null
 
-    suspend fun fetchUserName(userId: String): String? = runCatching {
-        supabase.postgrest.rpc("get_marketplace_seller_profiles")
-            .decodeList<com.example.secondshelf.data.marketplace.SellerProfileRecord>()
-            .find { it.id == userId }
-            ?.name
-            ?.takeIf { it.isNotBlank() && it != "Student" && it != "User" }
-    }.getOrNull()
+    suspend fun fetchUserName(userId: String): String? {
+        if (userId.isBlank()) return null
+
+        return runCatching {
+            supabase.postgrest.rpc(
+                function = "get_chat_participant_profile",
+                parameters = buildJsonObject { put("p_user_id", userId) }
+            )
+                .decodeList<com.example.secondshelf.data.marketplace.SellerProfileRecord>()
+                .firstOrNull()
+                ?.name
+                ?.takeIf { it.isNotBlank() && it != "Student" && it != "User" }
+        }.getOrNull()
+    }
 
 
     // ── Read ──────────────────────────────────────────────────────────────────
@@ -108,7 +115,8 @@ class ChatRepository {
                     listingId = latest.listingId,
                     lastMessage = latest.content,
                     lastTimestamp = latest.createdAt,
-                    unreadCount = unreadCount
+                    unreadCount = unreadCount,
+                    participantName = fetchUserName(otherId).orEmpty()
                 )
             }
     }.getOrDefault(emptyList())
