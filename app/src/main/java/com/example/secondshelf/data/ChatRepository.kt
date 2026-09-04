@@ -161,10 +161,18 @@ class ChatRepository {
     ) {
         leaveChat()
 
+        // Remove any existing channel with the same name to guarantee clean listener attachment
+        runCatching {
+            val existing = supabase.realtime.channel(channelName)
+            existing.unsubscribe()
+            supabase.realtime.removeChannel(existing)
+        }
+
+        // 1. Create fresh channel
         val ch = supabase.realtime.channel(channelName)
         channel = ch
 
-        // 1. New messages (INSERT)
+        // 2. Attach all Realtime event listeners BEFORE calling subscribe/join
         ch.postgresChangeFlow<PostgresAction.Insert>(schema = "public") {
             table = "messages"
             filter("listing_id", FilterOperator.EQ, listingId)
@@ -177,7 +185,6 @@ class ChatRepository {
             }
         }.launchIn(scope)
 
-        // 2. Read-receipt updates (UPDATE)
         ch.postgresChangeFlow<PostgresAction.Update>(schema = "public") {
             table = "messages"
             filter("listing_id", FilterOperator.EQ, listingId)
@@ -190,7 +197,6 @@ class ChatRepository {
             }
         }.launchIn(scope)
 
-        // 3. Presence tracking via presenceDataFlow
         ch.presenceDataFlow<PresenceState>()
             .onEach { presenceList ->
                 runCatching {
@@ -199,9 +205,12 @@ class ChatRepository {
                 }
             }.launchIn(scope)
 
+        // 3. Strictly subscribe to the channel AFTER all flows have been declared and attached
         runCatching {
             ch.subscribe(blockUntilSubscribed = true)
             ch.track(PresenceState(userId = myUserId))
+        }.onFailure { e ->
+            android.util.Log.e("ChatRepository", "Error subscribing to realtime channel", e)
         }
     }
 

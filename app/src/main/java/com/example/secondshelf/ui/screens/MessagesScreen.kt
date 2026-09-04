@@ -220,6 +220,11 @@ fun ConversationScreen(
     }
     val resolvedSellerName = resolveParticipantName(participantId, listingId, viewModel)
     val isBlocked = participantId in blockedAccounts || resolvedSellerName in blockedAccounts
+    val isSeller = listing != null && (
+        listing.sellerId == currentUserId ||
+        (viewModel.currentUser.id.isNotBlank() && listing.sellerId == viewModel.currentUser.id) ||
+        listing.isOwnedByCurrentUser
+    )
 
     fun blockUser() {
         val updated = blockedAccounts + participantId + resolvedSellerName
@@ -361,21 +366,23 @@ fun ConversationScreen(
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Accept Deal Button
-                    Button(
-                        onClick = { showQrScreen = true },
-                        shape = RoundedCornerShape(20.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = primary,
-                            contentColor = Color.White
-                        ),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Accept Deal", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    // Accept Deal Button (Only visible for the Seller)
+                    if (isSeller) {
+                        Button(
+                            onClick = { showQrScreen = true },
+                            shape = RoundedCornerShape(20.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = primary,
+                                contentColor = Color.White
+                            ),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Accept Deal", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        Spacer(Modifier.width(6.dp))
                     }
-                    Spacer(Modifier.width(6.dp))
                     Button(
                         onClick = { showRatingDialog = true },
                         shape = RoundedCornerShape(20.dp),
@@ -400,28 +407,30 @@ fun ConversationScreen(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false }
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("Accept Deal (QR Pass)") },
-                                onClick = {
-                                    showMenu = false
-                                    showQrScreen = true
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Default.QrCode2, contentDescription = null)
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Decline Deal") },
-                                onClick = {
-                                    showMenu = false
-                                    isDealDeclined = true
-                                    viewModel.showToast("Deal offer declined")
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Close, contentDescription = null)
-                                }
-                            )
-                            HorizontalDivider()
+                            if (isSeller) {
+                                DropdownMenuItem(
+                                    text = { Text("Accept Deal (QR Pass)") },
+                                    onClick = {
+                                        showMenu = false
+                                        showQrScreen = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.QrCode2, contentDescription = null)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Decline Deal") },
+                                    onClick = {
+                                        showMenu = false
+                                        isDealDeclined = true
+                                        viewModel.showToast("Deal offer declined")
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Close, contentDescription = null)
+                                    }
+                                )
+                                HorizontalDivider()
+                            }
                             if (isBlocked) {
                                 DropdownMenuItem(
                                     text = { Text("Unblock Account") },
@@ -492,8 +501,8 @@ fun ConversationScreen(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f), thickness = 1.dp)
 
-        // ── Interactive Deal Action Banner with Accept and Deny Buttons ────────
-        if (listing != null && !isDealDeclined) {
+        // ── Interactive Deal Action Banner (Only visible for the Seller) ──────
+        if (isSeller && listing != null && !isDealDeclined) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
