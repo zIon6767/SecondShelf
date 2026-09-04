@@ -178,6 +178,9 @@ fun AppNavigation(
                 onNavigateToCreateListing = { navController.navigate("create_listing") },
                 onNavigateToSaved = { navController.navigate("saved") },
                 onNavigateToMessages = { navController.navigate("messages") },
+                onNavigateToConversation = { participantId, listingId ->
+                    navController.navigate("conversation/$participantId/$listingId")
+                },
                 onNavigateToEditProfile = { navController.navigate("edit_profile") },
                 onLogout = {
                     authViewModel.signOut()

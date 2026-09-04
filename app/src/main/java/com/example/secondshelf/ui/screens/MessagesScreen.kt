@@ -1,5 +1,6 @@
 package com.example.secondshelf.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.example.secondshelf.ui.model.formatPrice
 import com.example.secondshelf.ui.model.getSellerName
 import com.example.secondshelf.ui.model.getUserById
 import com.example.secondshelf.ui.viewmodel.ChatViewModel
@@ -58,10 +60,36 @@ private fun formatChatTime(raw: String): String {
     }.getOrDefault(raw.take(5))
 }
 
+fun resolveParticipantName(participantId: String, listingId: String, viewModel: MarketplaceViewModel): String {
+    // 1. Direct listing match
+    val listing = viewModel.getListing(listingId)
+    if (listing != null) {
+        if (listing.sellerId == participantId && listing.sellerName.isNotBlank() && listing.sellerName != "Unknown Seller" && listing.sellerName != "Student") {
+            return listing.sellerName
+        }
+    }
+    // 2. Any listing by this seller
+    val listingBySeller = viewModel.listings.find { it.sellerId == participantId && it.sellerName.isNotBlank() && it.sellerName != "Unknown Seller" && it.sellerName != "Student" }
+    if (listingBySeller != null) {
+        return listingBySeller.sellerName
+    }
+    // 3. Current user
+    if (participantId == viewModel.currentUser.id && viewModel.currentUser.name.isNotBlank() && viewModel.currentUser.name != "Student") {
+        return viewModel.currentUser.name
+    }
+    // 4. Mock / registered users
+    val mock = getUserById(participantId)
+    if (mock != null && mock.name.isNotBlank() && mock.name != "Student") {
+        return mock.name
+    }
+    val fallback = getSellerName(participantId)
+    return if (fallback.isNotBlank() && fallback != "Unknown Seller" && fallback != "Student") fallback else "Seller"
+}
+
 @Composable
 fun MessagesScreen(
     viewModel: MarketplaceViewModel,
-    onNavigateBack: () -> Unit,
+    onNavigateBack: () -> Unit = {},
     onConversationClick: (participantId: String, listingId: String) -> Unit
 ) {
     val conversations = viewModel.conversations
@@ -74,27 +102,9 @@ fun MessagesScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.background)
-                .statusBarsPadding()
                 .padding(horizontal = 20.dp)
                 .padding(top = 12.dp, bottom = 16.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(primary.copy(alpha = 0.10f)),
-                contentAlignment = Alignment.Center
-            ) {
-                IconButton(onClick = onNavigateBack, modifier = Modifier.size(36.dp)) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-            Spacer(Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Bottom,
@@ -129,6 +139,7 @@ fun MessagesScreen(
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(conversations) { conv ->
+                    val resolvedName = resolveParticipantName(conv.participantId, conv.listingId, viewModel)
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -140,7 +151,7 @@ fun MessagesScreen(
                         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(48.dp)) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Text(conv.participantId.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text(resolvedName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
                                 }
                             }
                             Spacer(Modifier.width(12.dp))
@@ -150,7 +161,7 @@ fun MessagesScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(getSellerName(conv.participantId), fontWeight = FontWeight.SemiBold)
+                                    Text(resolvedName, fontWeight = FontWeight.SemiBold)
                                     if (conv.lastTimestamp.isNotBlank()) {
                                         Text(
                                             text = formatChatTime(conv.lastTimestamp),
@@ -207,17 +218,18 @@ fun ConversationScreen(
             prefs.getStringSet("blocked_accounts", emptySet())?.toSet() ?: emptySet()
         )
     }
-    val isBlocked = participantId in blockedAccounts || getSellerName(participantId) in blockedAccounts
+    val resolvedSellerName = resolveParticipantName(participantId, listingId, viewModel)
+    val isBlocked = participantId in blockedAccounts || resolvedSellerName in blockedAccounts
 
     fun blockUser() {
-        val updated = blockedAccounts + participantId + getSellerName(participantId)
+        val updated = blockedAccounts + participantId + resolvedSellerName
         blockedAccounts = updated
         prefs.edit().putStringSet("blocked_accounts", updated).apply()
         viewModel.showToast("Account blocked")
     }
 
     fun unblockUser() {
-        val updated = blockedAccounts - participantId - getSellerName(participantId)
+        val updated = blockedAccounts - participantId - resolvedSellerName
         blockedAccounts = updated
         prefs.edit().putStringSet("blocked_accounts", updated).apply()
         viewModel.showToast("Account unblocked")
@@ -226,6 +238,8 @@ fun ConversationScreen(
     var showRatingDialog by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showBlockConfirmDialog by remember { mutableStateOf(false) }
+    var showQrScreen by remember { mutableStateOf(false) }
+    var isDealDeclined by remember { mutableStateOf(false) }
 
     // ── Initialise chat on first composition ──────────────────────────────────
     LaunchedEffect(participantId, listingId) {
@@ -234,14 +248,16 @@ fun ConversationScreen(
             myUserId = currentUserId,
             participantId = participantId,
             listingId = listingId,
-            participantName = getSellerName(participantId)
+            participantName = resolvedSellerName
         )
     }
 
-    // ── Scroll to bottom when messages update ─────────────────────────────────
+    // ── Scroll to bottom when messages update (crash-proof) ───────────────────
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
-            listState.animateScrollToItem(uiState.messages.size - 1)
+            runCatching {
+                listState.scrollToItem(uiState.messages.size - 1)
+            }
         }
     }
 
@@ -252,7 +268,7 @@ fun ConversationScreen(
 
     if (showRatingDialog) {
         com.example.secondshelf.ui.components.RatingReviewDialog(
-            targetUserName = getSellerName(participantId),
+            targetUserName = resolvedSellerName,
             listingTitle = listing?.title ?: "Campus Item",
             onDismiss = { showRatingDialog = false },
             onSubmit = { rating, comment, tags ->
@@ -272,7 +288,7 @@ fun ConversationScreen(
             onDismissRequest = { showBlockConfirmDialog = false },
             title = { Text("Block Account") },
             text = {
-                Text("Are you sure you want to block ${uiState.participantName.ifBlank { getSellerName(participantId) }}? You will no longer be able to message each other.")
+                Text("Are you sure you want to block ${uiState.participantName.ifBlank { resolvedSellerName }}? You will no longer be able to message each other.")
             },
             confirmButton = {
                 TextButton(
@@ -292,6 +308,24 @@ fun ConversationScreen(
         )
     }
 
+    // ── QR Code Pickup Pass Dialog for Deal Acceptance ───────────────────────
+    if (showQrScreen) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showQrScreen = false },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(modifier = Modifier.fillMaxSize()) {
+                QrScreen(
+                    onNavigateBack = { showQrScreen = false },
+                    transactionToken = listing?.id ?: listingId,
+                    itemName = listing?.title ?: "Campus Item",
+                    price = if (listing != null) formatPrice(listing.price) else "RM 40",
+                    sellerName = uiState.participantName.ifBlank { resolvedSellerName }
+                )
+            }
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
 
         // ── Premium conversation header ─────────────────────────────────────
@@ -304,7 +338,7 @@ fun ConversationScreen(
                 .padding(horizontal = 20.dp)
                 .padding(top = 12.dp, bottom = 14.dp)
         ) {
-            // Back + Rate Deal + Kebab Menu Row
+            // Back + Deal Actions + Kebab Menu Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -327,6 +361,21 @@ fun ConversationScreen(
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Accept Deal Button
+                    Button(
+                        onClick = { showQrScreen = true },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = primary,
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Accept Deal", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                    Spacer(Modifier.width(6.dp))
                     Button(
                         onClick = { showRatingDialog = true },
                         shape = RoundedCornerShape(20.dp),
@@ -334,9 +383,9 @@ fun ConversationScreen(
                             containerColor = primary.copy(alpha = 0.12f),
                             contentColor = primary
                         ),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                     ) {
-                        Text("★ Rate Deal", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("★ Rate", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                     Spacer(Modifier.width(4.dp))
                     Box {
@@ -351,6 +400,28 @@ fun ConversationScreen(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("Accept Deal (QR Pass)") },
+                                onClick = {
+                                    showMenu = false
+                                    showQrScreen = true
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.QrCode2, contentDescription = null)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Decline Deal") },
+                                onClick = {
+                                    showMenu = false
+                                    isDealDeclined = true
+                                    viewModel.showToast("Deal offer declined")
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Close, contentDescription = null)
+                                }
+                            )
+                            HorizontalDivider()
                             if (isBlocked) {
                                 DropdownMenuItem(
                                     text = { Text("Unblock Account") },
@@ -387,7 +458,7 @@ fun ConversationScreen(
             // Participant name + online presence dot
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = uiState.participantName.ifBlank { getSellerName(participantId) },
+                    text = uiState.participantName.ifBlank { resolvedSellerName },
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
@@ -421,6 +492,79 @@ fun ConversationScreen(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f), thickness = 1.dp)
 
+        // ── Interactive Deal Action Banner with Accept and Deny Buttons ────────
+        if (listing != null && !isDealDeclined) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = primary.copy(alpha = 0.08f),
+                border = BorderStroke(0.5.dp, primary.copy(alpha = 0.25f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = listing.title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = formatPrice(listing.price),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Deny Button
+                        OutlinedButton(
+                            onClick = {
+                                isDealDeclined = true
+                                viewModel.showToast("Deal offer declined")
+                            },
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            ),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(Modifier.width(3.dp))
+                            Text("Deny", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        // Accept Deal Button
+                        Button(
+                            onClick = { showQrScreen = true },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = primary),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(3.dp))
+                            Text("Accept Deal", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
         // ── Message list ──────────────────────────────────────────────────────
         if (uiState.messages.isEmpty()) {
             Box(
@@ -449,7 +593,12 @@ fun ConversationScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(vertical = 16.dp)
             ) {
-                items(uiState.messages, key = { it.id }) { msg ->
+                itemsIndexed(
+                    items = uiState.messages,
+                    key = { index, msg ->
+                        "${msg.id.ifBlank { "msg" }}_${index}_${msg.senderId}_${msg.createdAt.hashCode()}_${msg.content.hashCode()}"
+                    }
+                ) { _, msg ->
                     val isMe = msg.senderId == currentUserId
                     Column(
                         modifier = Modifier.fillMaxWidth(),

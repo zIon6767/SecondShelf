@@ -55,6 +55,7 @@ fun HomeScreen(
     onNavigateToCreateListing: () -> Unit,
     onNavigateToSaved: () -> Unit,
     onNavigateToMessages: () -> Unit,
+    onNavigateToConversation: (participantId: String, listingId: String) -> Unit = { _, _ -> },
     onNavigateToEditProfile: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -160,14 +161,18 @@ fun HomeScreen(
                     onNavigateToProfile = { selectedTab = 3 }
                 )
                 1 -> SavedTab(viewModel, onNavigateToListing, onNavigateToCreateListing)
-                2 -> ChatTab(viewModel, onNavigateToMessages)
+                2 -> MessagesScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { selectedTab = 0 },
+                    onConversationClick = { pId, lId -> onNavigateToConversation(pId, lId) }
+                )
                 3 -> ProfileTab(
                     viewModel,
                     onNavigateToSettings,
                     onNavigateToCreateListing,
                     onNavigateToListing,
                     onNavigateToSaved,
-                    onNavigateToMessages,
+                    onNavigateToMessages = { selectedTab = 2 },
                     onNavigateToEditProfile,
                     onLogout
                 )
