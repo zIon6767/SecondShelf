@@ -16,7 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.secondshelf.ui.navigation.AppNavigation
 import com.example.secondshelf.ui.theme.SecondShelfTheme
-import com.example.secondshelf.ui.viewmodel.marketplaceViewModel
+import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 
 class MainActivity : ComponentActivity() {
 

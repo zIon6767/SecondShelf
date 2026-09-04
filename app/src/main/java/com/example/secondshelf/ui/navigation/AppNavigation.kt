@@ -21,7 +21,6 @@ import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 fun AppNavigation(authCallbackUri: Uri? = null, marketplaceViewModel: MarketplaceViewModel) {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
-    val marketplaceViewModel: MarketplaceViewModel = viewModel()
     val authUiState by authViewModel.uiState.collectAsState()
 
     // Trigger OAuth token exchange when the deep-link arrives
@@ -169,8 +168,14 @@ fun AppNavigation(authCallbackUri: Uri? = null, marketplaceViewModel: Marketplac
                 onNavigateToCreateListing = { navController.navigate("create_listing") },
                 onNavigateToSaved = { navController.navigate("saved") },
                 onNavigateToMessages = { navController.navigate("messages") },
+                onNavigateToChat = { participantId, listingId ->
+                    navController.navigate("conversation/$participantId/$listingId")
+                },
                 onNavigateToEditProfile = { navController.navigate("edit_profile") },
                 onLogout = {
+                    // Clear all in-memory user data BEFORE signing out so the next
+                    // user that logs in on this device starts from a clean slate.
+                    marketplaceViewModel.clearAllUserData()
                     authViewModel.signOut()
                     navController.navigate("login") { popUpTo(0) { inclusive = true } }
                 }
@@ -242,6 +247,8 @@ fun AppNavigation(authCallbackUri: Uri? = null, marketplaceViewModel: Marketplac
                 onNavigateToCampusSafety = { navController.navigate("campus_safety") },
                 onNavigateToAbout = { navController.navigate("about") },
                 onLogout = {
+                    // Wipe in-memory user data so the next user gets a clean slate
+                    marketplaceViewModel.clearAllUserData()
                     authViewModel.signOut()
                     navController.navigate("login") { popUpTo(0) { inclusive = true } }
                 },

@@ -638,7 +638,7 @@ fun TopBar(
 fun EditProfileScreenPreview() {
     com.example.secondshelf.ui.theme.SecondShelfTheme {
         EditProfileScreen(
-            viewModel = MarketplaceViewModel(),
+            viewModel = MarketplaceViewModel(android.app.Application()),
             onNavigateBack = {}
         )
     }
@@ -649,7 +649,7 @@ fun EditProfileScreenPreview() {
 fun SavedItemsScreenPreview() {
     com.example.secondshelf.ui.theme.SecondShelfTheme {
         SavedItemsScreen(
-            viewModel = MarketplaceViewModel(),
+            viewModel = MarketplaceViewModel(android.app.Application()),
             onNavigateBack = {},
             onListingClick = {}
         )

@@ -24,7 +24,9 @@ data class ChatUiState(
     val isParticipantOnline: Boolean = false,
     val participantName: String = "",
     val isSending: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    /** True once the current user has blocked this participant. */
+    val isBlocked: Boolean = false
 )
 
 /**
@@ -66,14 +68,19 @@ class ChatViewModel : ViewModel() {
         myUserId: String,
         participantId: String,
         listingId: String,
-        participantName: String = ""
+        participantName: String = "",
+        isParticipantBlocked: Boolean = false
     ) {
         // Avoid re-initialising for the same conversation
         if (
             this.myUserId == myUserId &&
             this.participantId == participantId &&
             this.listingId == listingId
-        ) return
+        ) {
+            // Still update blocked state if it changed (e.g. user blocked mid-session)
+            _uiState.update { it.copy(isBlocked = isParticipantBlocked) }
+            return
+        }
 
         this.myUserId = myUserId
         this.participantId = participantId
@@ -82,6 +89,7 @@ class ChatViewModel : ViewModel() {
         if (participantName.isNotBlank()) {
             _uiState.update { it.copy(participantName = participantName) }
         }
+        _uiState.update { it.copy(isBlocked = isParticipantBlocked) }
 
         viewModelScope.launch {
             runCatching {
@@ -112,6 +120,14 @@ class ChatViewModel : ViewModel() {
                 _uiState.update { it.copy(error = e.message ?: "Failed to connect to chat") }
             }
         }
+    }
+
+    /**
+     * Updates the [isBlocked] flag in the UI state.  Call this when the user
+     * blocks or unblocks the participant from within the conversation screen.
+     */
+    fun setBlocked(blocked: Boolean) {
+        _uiState.update { it.copy(isBlocked = blocked) }
     }
 
     // ── ON_RESUME hook ────────────────────────────────────────────────────────

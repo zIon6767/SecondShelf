@@ -1,9 +1,11 @@
 package com.example.secondshelf.ui.viewmodel
 
+import android.app.Application
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.secondshelf.supabase
 import com.example.secondshelf.data.ChatRepository
@@ -17,14 +19,11 @@ import kotlinx.serialization.json.put
 import org.json.JSONArray
 import java.util.UUID
 
-class MarketplaceViewModel : ViewModel() {
+class MarketplaceViewModel(application: Application) : AndroidViewModel(application) {
 
     private val chatRepository = ChatRepository()
 
-    init {
-        fetchReviews()
-    }
-
+    // ── Current authenticated user state ──
     var currentUser by mutableStateOf(
         User(
             id = "user-current",
@@ -35,6 +34,63 @@ class MarketplaceViewModel : ViewModel() {
         )
     )
         private set
+
+    // ── Chat-settings SharedPreferences ──
+    private val chatPrefs = application.getSharedPreferences("second_shelf_chat_settings", Context.MODE_PRIVATE)
+
+    val showMessagePreviews: Boolean
+        get() = runCatching { chatPrefs.getBoolean("msg_previews", true) }.getOrDefault(true)
+
+    val showOnlineStatus: Boolean
+        get() = runCatching { chatPrefs.getBoolean("online_status", true) }.getOrDefault(true)
+
+    val showReadReceipts: Boolean
+        get() = runCatching { chatPrefs.getBoolean("read_receipts", true) }.getOrDefault(true)
+
+    // ── Blocked user IDs ──
+    private fun blockedPrefsKey(userId: String? = null): String {
+        // IMPORTANT: We use a safe fallback if currentUser isn't accessible yet
+        val uid = userId ?: try { currentUser.id } catch(e: Exception) { "user-current" }
+        return "blocked_ids_${uid.ifBlank { "user-current" }}"
+    }
+
+    var blockedUserIds by mutableStateOf(setOf<String>())
+        private set
+
+    private fun loadBlockedIds(initialUid: String = "user-current") {
+        runCatching {
+            val key = blockedPrefsKey(initialUid)
+            blockedUserIds = chatPrefs.getStringSet(key, emptySet())?.toSet() ?: emptySet()
+        }.onFailure {
+            blockedUserIds = emptySet()
+        }
+    }
+
+    fun isBlocked(userId: String): Boolean = userId in blockedUserIds
+
+    fun blockUser(userId: String) {
+        runCatching {
+            val updated = blockedUserIds + userId
+            blockedUserIds = updated
+            chatPrefs.edit().putStringSet(blockedPrefsKey(), updated).apply()
+            showToast("Account blocked")
+        }
+    }
+
+    fun unblockUser(userId: String) {
+        runCatching {
+            val updated = blockedUserIds - userId
+            blockedUserIds = updated
+            chatPrefs.edit().putStringSet(blockedPrefsKey(), updated).apply()
+            showToast("Account unblocked")
+        }
+    }
+
+    init {
+        // Use safe initialisation path
+        loadBlockedIds("user-current")
+        fetchReviews()
+    }
 
     fun syncAuthUser(
         id: String = "",
@@ -75,6 +131,8 @@ class MarketplaceViewModel : ViewModel() {
             avatarInitial = initial,
             avatarUrl = cleanAvatarUrl
         )
+        // Refresh blocked list for the new UID
+        loadBlockedIds(cleanId)
     }
 
     var listings by mutableStateOf(initialListings)
@@ -83,34 +141,7 @@ class MarketplaceViewModel : ViewModel() {
     var favorites by mutableStateOf(setOf<String>())
         private set
 
-    var reviews by mutableStateOf<List<Review>>(
-        listOf(
-            Review(
-                id = "rev-1",
-                authorId = "user-2",
-                authorName = "Sarah Lee",
-                authorAvatarInitial = "S",
-                targetUserId = "user-current",
-                listingTitle = "Calculus 9th Edition",
-                rating = 5,
-                comment = "Super fast response and punctual during meetup! Book condition was great.",
-                tags = listOf("Punctual", "Item as Described", "Friendly"),
-                timeAgo = "2 days ago"
-            ),
-            Review(
-                id = "rev-2",
-                authorId = "user-3",
-                authorName = "Marcus Wong",
-                authorAvatarInitial = "M",
-                targetUserId = "user-current",
-                listingTitle = "Scientific Calculator",
-                rating = 5,
-                comment = "Smooth transaction at library lobby. Highly recommended seller!",
-                tags = listOf("Fast Reply", "Friendly"),
-                timeAgo = "1 week ago"
-            )
-        )
-    )
+    var reviews by mutableStateOf<List<Review>>(emptyList())
         private set
 
     var notifications by mutableStateOf(initialNotifications)
@@ -216,13 +247,9 @@ class MarketplaceViewModel : ViewModel() {
 
                 // Every token in the query must match at least one relevant attribute
                 queryTokens.all { token ->
-                    // 1. Category name match (e.g. "book" matches "Books", "cloth" matches "Clothing")
                     categoryWords.any { it.startsWith(token) || token.startsWith(it) } ||
-                    // 2. Title word match (e.g. "table" matches "Table", "calculus" matches "Calculus")
                     titleWords.any { word -> word.startsWith(token) || (token.length >= 4 && word.contains(token)) } ||
-                    // 3. Description word match (must start with token to avoid "suitable" matching "table")
                     descWords.any { word -> word.startsWith(token) } ||
-                    // 4. Seller name match
                     sellerWords.any { it.startsWith(token) }
                 }
             }
@@ -395,11 +422,6 @@ class MarketplaceViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Fetches all real conversations for the current user from Supabase and
-     * updates the local [conversations] state.  Call this when entering the
-     * Messages list screen to ensure fresh data is shown.
-     */
     fun refreshConversations() {
         val myId = currentUser.id
         if (myId.isBlank() || myId == "user-current") return
@@ -413,12 +435,6 @@ class MarketplaceViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Inserts or updates a single [Conversation] entry in the local list.
-     * Call this when the user enters a chat from the listing detail page so
-     * that the Messages list reflects the conversation immediately (even before
-     * a full [refreshConversations] is triggered).
-     */
     fun upsertConversation(
         participantId: String,
         listingId: String,

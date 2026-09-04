@@ -649,6 +649,7 @@ private fun ChatTab(
     onNavigateToChat: (partnerId: String, listingId: String) -> Unit
 ) {
     val conversations = viewModel.conversations
+    val showPreviews = viewModel.showMessagePreviews
 
     // Refresh conversations from Supabase when entering Chat Tab
     LaunchedEffect(Unit) {
@@ -700,9 +701,11 @@ private fun ChatTab(
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
                 items(conversations) { conv ->
-                    val otherUser = getUserById(conv.participantId)
-                    val displayName = getSellerName(conv.participantId)
-                    val avatarLetter = if (displayName != "Unknown Seller") {
+                    val isUserBlocked = viewModel.isBlocked(conv.participantId)
+                    val displayName = getSellerName(conv.participantId).let {
+                        if (it != "Unknown Seller") it else conv.participantId.take(8) + "…"
+                    }
+                    val avatarLetter = if (displayName != "Unknown Seller" && displayName.isNotBlank()) {
                         displayName.first().uppercaseChar().toString()
                     } else {
                         conv.participantId.firstOrNull()?.uppercaseChar()?.toString() ?: "U"
@@ -715,8 +718,8 @@ private fun ChatTab(
                             .clickable { onNavigateToChat(conv.participantId, conv.listingId) }
                             .padding(horizontal = 16.dp, vertical = 4.dp),
                         shape = RoundedCornerShape(12.dp),
-                        color = Color.White,
-                        border = BorderStroke(0.5.dp, Color(0xFFE5E7EB))
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f))
                     ) {
                         Row(
                             modifier = Modifier.padding(14.dp),
@@ -724,16 +727,25 @@ private fun ChatTab(
                         ) {
                             Surface(
                                 shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = if (isUserBlocked) Color(0xFFFF3B30) else MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(48.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Text(
-                                        text = otherUser?.avatarInitial ?: "U",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 18.sp
-                                    )
+                                    if (isUserBlocked) {
+                                        Icon(
+                                            Icons.Outlined.Block,
+                                            contentDescription = "Blocked",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    } else {
+                                        Text(
+                                            text = avatarLetter,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 18.sp
+                                        )
+                                    }
                                 }
                             }
                             Spacer(Modifier.width(12.dp))
@@ -743,40 +755,62 @@ private fun ChatTab(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Text(
-                                        text = otherUser?.name ?: "Student",
+                                        text = displayName,
                                         fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.bodyLarge
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = if (isUserBlocked) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface
                                     )
-                                    Text(
-                                        text = conv.lastTimestamp,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.secondary
-                                    )
+                                    if (conv.lastTimestamp.isNotBlank() && !isUserBlocked) {
+                                        Text(
+                                            text = formatMessageTime(conv.lastTimestamp),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
+                                    }
                                 }
-                                if (listing != null) {
+                                if (isUserBlocked) {
                                     Text(
-                                        text = "Item: ${listing.title}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary,
+                                        "You blocked this account",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color(0xFFFF3B30).copy(alpha = 0.8f),
+                                        maxLines = 1
+                                    )
+                                } else {
+                                    if (listing != null) {
+                                        Text(
+                                            text = "Item: ${listing.title}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    Text(
+                                        text = if (showPreviews) conv.lastMessage.ifBlank { "Tap to enter conversation" }
+                                               else "• • •",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.secondary,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                 }
-                                Text(
-                                    text = conv.lastMessage,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
                             }
-                            if (conv.unreadCount > 0) {
+                            if (conv.unreadCount > 0 && !isUserBlocked) {
                                 Spacer(Modifier.width(8.dp))
                                 Surface(
                                     shape = CircleShape,
                                     color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(10.dp)
-                                ) {}
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            conv.unreadCount.coerceAtMost(99).toString(),
+                                            color = Color.White,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -1226,7 +1260,7 @@ private fun ProfileStat(value: String, label: String, onClick: (() -> Unit)? = n
 fun HomeScreenPreview() {
     com.example.secondshelf.ui.theme.SecondShelfTheme {
         HomeScreen(
-            viewModel = MarketplaceViewModel(),
+            viewModel = MarketplaceViewModel(android.app.Application()),
             userId = "user-1",
             userName = "Sarah Lee",
             userEmail = "sarahlee@student.tarc.edu.my",
