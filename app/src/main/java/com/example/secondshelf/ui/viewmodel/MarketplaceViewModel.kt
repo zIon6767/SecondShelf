@@ -22,6 +22,7 @@ import kotlinx.serialization.json.put
 import org.json.JSONArray
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 import java.util.UUID
 
 class MarketplaceViewModel(
@@ -87,6 +88,9 @@ class MarketplaceViewModel(
         if (cleanId != previousId && isSupabaseUserId(cleanId)) {
             refreshMarketplace()
             loadConversationsFromDb(cleanId)
+            startMessageNotificationListener(cleanId)
+        } else if (isSupabaseUserId(cleanId) && activeListenerUserId != cleanId) {
+            startMessageNotificationListener(cleanId)
         }
     }
 
@@ -143,6 +147,27 @@ class MarketplaceViewModel(
 
     var toastMessage by mutableStateOf<String?>(null)
         private set
+
+    var currentPopupNotification by mutableStateOf<InAppNotificationData?>(null)
+        private set
+
+    fun showPopupNotification(notification: InAppNotificationData) {
+        currentPopupNotification = notification
+    }
+
+    fun dismissPopupNotification() {
+        currentPopupNotification = null
+    }
+
+    private var activeConversation: Pair<String, String>? = null
+
+    fun setActiveConversation(participantId: String, listingId: String) {
+        activeConversation = participantId to listingId
+    }
+
+    fun clearActiveConversation() {
+        activeConversation = null
+    }
 
     private var _isDarkMode = mutableStateOf(false)
     val isDarkMode: Boolean get() = _isDarkMode.value
@@ -583,6 +608,14 @@ class MarketplaceViewModel(
                 conv.copy(unreadCount = 0)
             } else conv
         }
+        notifications = notifications.map { notif ->
+            if (notif.participantId == participantId && notif.listingId == listingId) {
+                notif.copy(read = true)
+            } else notif
+        }
+        if (currentPopupNotification?.participantId == participantId && currentPopupNotification?.listingId == listingId) {
+            dismissPopupNotification()
+        }
     }
 
     fun getDaysUntilNextNameChange(): Int {
@@ -783,5 +816,139 @@ class MarketplaceViewModel(
 
     fun dismissToast() {
         toastMessage = null
+    }
+
+    // ── Incoming Message Realtime Listener & Notifications ────────────────────
+
+    private var messageListenerJob: kotlinx.coroutines.Job? = null
+    private var activeListenerUserId: String? = null
+    private val knownIncomingMessageIds = mutableSetOf<String>()
+
+    fun startMessageNotificationListener(userId: String) {
+        if (userId.isBlank()) return
+        if (activeListenerUserId == userId && messageListenerJob?.isActive == true) return
+        activeListenerUserId = userId
+
+        messageListenerJob?.cancel()
+        messageListenerJob = viewModelScope.launch {
+            // Seed already unread messages so we don't spam popups on cold launch
+            runCatching {
+                val existingUnread = chatRepository.fetchUnreadMessagesForUser(userId)
+                existingUnread.forEach { knownIncomingMessageIds.add(it.id) }
+            }
+
+            // 1. Realtime listener
+            launch {
+                chatRepository.startGlobalMessageListener(
+                    scope = this,
+                    myUserId = userId,
+                    onNewIncomingMessage = { msg ->
+                        handleIncomingMessage(msg, userId)
+                    }
+                )
+            }
+
+            // 2. Periodic poll fallback (runs every 6 seconds)
+            while (isActive) {
+                kotlinx.coroutines.delay(6000L)
+                runCatching {
+                    val unread = chatRepository.fetchUnreadMessagesForUser(userId)
+                    for (msg in unread) {
+                        if (msg.id.isNotBlank() && msg.id !in knownIncomingMessageIds && msg.senderId != userId) {
+                            handleIncomingMessage(msg, userId)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun handleIncomingMessage(msg: ChatMessage, myUserId: String) {
+        if (msg.receiverId != myUserId || msg.senderId == myUserId) return
+        if (msg.id.isNotBlank() && msg.id in knownIncomingMessageIds) return
+        if (msg.id.isNotBlank()) {
+            knownIncomingMessageIds.add(msg.id)
+        }
+
+        // Resolve sender name
+        var senderName = chatRepository.fetchUserName(msg.senderId)
+        if (senderName.isNullOrBlank()) {
+            senderName = getListing(msg.listingId)?.sellerName
+        }
+        if (senderName.isNullOrBlank() || senderName in listOf("Student", "Unknown Seller", "Seller")) {
+            senderName = "Seller"
+        }
+
+        // Add notice to notifications list
+        val notif = AppNotification(
+            id = "notif-msg-${msg.id.ifBlank { UUID.randomUUID().toString().take(8) }}",
+            userId = myUserId,
+            type = NotificationType.MESSAGE,
+            title = "New message from $senderName",
+            message = msg.content,
+            time = "Just now",
+            read = false,
+            participantId = msg.senderId,
+            listingId = msg.listingId
+        )
+        notifications = listOf(notif) + notifications
+
+        // Show pop-up if user is not currently inside that specific conversation
+        val isCurrentlyInSameChat = activeConversation?.first == msg.senderId && activeConversation?.second == msg.listingId
+        if (!isCurrentlyInSameChat) {
+            showPopupNotification(
+                InAppNotificationData(
+                    id = msg.id.ifBlank { UUID.randomUUID().toString() },
+                    title = senderName,
+                    message = msg.content,
+                    senderName = senderName,
+                    participantId = msg.senderId,
+                    listingId = msg.listingId,
+                    avatarInitial = senderName.firstOrNull()?.uppercaseChar()?.toString() ?: "S"
+                )
+            )
+        }
+
+        // Keep conversations list updated
+        loadConversationsFromDb(myUserId)
+    }
+
+    fun simulateIncomingMessage(
+        senderName: String = "Sarah Lee",
+        content: String = "Hi! Is your item still available? Can we meet at Block M?",
+        listingId: String = listings.firstOrNull()?.id ?: "listing-1",
+        participantId: String = "demo_sender_${System.currentTimeMillis()}"
+    ) {
+        val notif = AppNotification(
+            id = "notif-sim-${UUID.randomUUID().toString().take(8)}",
+            userId = currentUser.id,
+            type = NotificationType.MESSAGE,
+            title = "New message from $senderName",
+            message = content,
+            time = "Just now",
+            read = false,
+            participantId = participantId,
+            listingId = listingId
+        )
+        notifications = listOf(notif) + notifications
+        showPopupNotification(
+            InAppNotificationData(
+                id = notif.id,
+                title = senderName,
+                message = content,
+                senderName = senderName,
+                participantId = participantId,
+                listingId = listingId,
+                avatarInitial = senderName.firstOrNull()?.uppercaseChar()?.toString() ?: "S"
+            )
+        )
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        messageListenerJob?.cancel()
+        viewModelScope.launch {
+            chatRepository.stopGlobalMessageListener()
+        }
     }
 }

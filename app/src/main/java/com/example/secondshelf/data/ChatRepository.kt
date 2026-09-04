@@ -221,4 +221,64 @@ class ChatRepository {
         }
         channel = null
     }
+
+    // ── Global Incoming Message Listener ──────────────────────────────────────
+
+    private var globalNotificationChannel: RealtimeChannel? = null
+
+    suspend fun startGlobalMessageListener(
+        scope: CoroutineScope,
+        myUserId: String,
+        onNewIncomingMessage: suspend (ChatMessage) -> Unit
+    ) {
+        if (myUserId.isBlank()) return
+        stopGlobalMessageListener()
+
+        val channelName = "user_notif:$myUserId"
+        val ch = supabase.realtime.channel(channelName)
+        globalNotificationChannel = ch
+
+        ch.postgresChangeFlow<PostgresAction.Insert>(schema = "public") {
+            table = "messages"
+        }.onEach { action ->
+            runCatching {
+                val msg = jsonSerializer.decodeFromJsonElement(ChatMessage.serializer(), action.record)
+                if (msg.receiverId == myUserId && msg.senderId != myUserId) {
+                    onNewIncomingMessage(msg)
+                }
+            }.onFailure { e ->
+                android.util.Log.e("ChatRepository", "Error parsing global incoming message", e)
+            }
+        }.launchIn(scope)
+
+        runCatching {
+            ch.subscribe(blockUntilSubscribed = true)
+        }.onFailure { e ->
+            android.util.Log.e("ChatRepository", "Error subscribing to global notification channel", e)
+        }
+    }
+
+    suspend fun stopGlobalMessageListener() {
+        globalNotificationChannel?.let { ch ->
+            runCatching { ch.unsubscribe() }
+            runCatching { supabase.realtime.removeChannel(ch) }
+        }
+        globalNotificationChannel = null
+    }
+
+    suspend fun fetchUnreadMessagesForUser(myUserId: String): List<ChatMessage> = runCatching {
+        if (myUserId.isBlank()) return emptyList()
+        supabase.postgrest.from("messages")
+            .select {
+                filter {
+                    and {
+                        eq("receiver_id", myUserId)
+                        eq("is_read", false)
+                    }
+                }
+                order(column = "created_at", order = Order.DESCENDING)
+                limit(20)
+            }
+            .decodeList<ChatMessage>()
+    }.getOrDefault(emptyList())
 }

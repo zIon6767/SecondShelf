@@ -144,10 +144,12 @@ fun HomeScreen(
             }
         },
         bottomBar = {
+            val chatUnreadCount = viewModel.conversations.sumOf { it.unreadCount } + viewModel.notifications.count { it.type == NotificationType.MESSAGE && !it.read }
             SecondShelfBottomBar(
                 selectedTab = selectedTab,
                 onTabSelected = { selectedTab = it },
-                onAddListingClick = onNavigateToCreateListing
+                onAddListingClick = onNavigateToCreateListing,
+                chatBadgeCount = chatUnreadCount
             )
         }
     ) { innerPadding ->
@@ -188,7 +190,8 @@ fun HomeScreen(
 private fun SecondShelfBottomBar(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
-    onAddListingClick: () -> Unit
+    onAddListingClick: () -> Unit,
+    chatBadgeCount: Int = 0
 ) {
     val activeColor = MaterialTheme.colorScheme.primary
     val inactiveColor = Color(0xFF8E8E93)
@@ -266,6 +269,7 @@ private fun SecondShelfBottomBar(
                 icon = if (selectedTab == 2) Icons.Filled.ChatBubble else Icons.Outlined.ChatBubbleOutline,
                 activeColor = activeColor,
                 inactiveColor = inactiveColor,
+                badgeCount = chatBadgeCount,
                 onClick = { onTabSelected(2) }
             )
 
@@ -289,6 +293,7 @@ private fun SecondShelfNavItem(
     icon: ImageVector,
     activeColor: Color,
     inactiveColor: Color,
+    badgeCount: Int = 0,
     onClick: () -> Unit
 ) {
     val color = if (selected) activeColor else inactiveColor
@@ -300,12 +305,33 @@ private fun SecondShelfNavItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = color,
-            modifier = Modifier.size(24.dp)
-        )
+        Box {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = color,
+                modifier = Modifier.size(24.dp)
+            )
+            if (badgeCount > 0) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFFF3B30),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 6.dp, y = (-3).dp)
+                        .sizeIn(minWidth = 14.dp, minHeight = 14.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 3.dp)) {
+                        Text(
+                            text = if (badgeCount > 9) "9+" else "$badgeCount",
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
@@ -410,13 +436,23 @@ private fun CleanTopBar(
                     )
                 }
                 if (unreadCount > 0) {
-                    Box(
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFFFF3B30),
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .offset(x = 1.dp, y = 1.dp)
-                            .size(9.dp)
-                            .background(Color(0xFFFF3B30), CircleShape)
-                    )
+                            .offset(x = 3.dp, y = (-2).dp)
+                            .sizeIn(minWidth = 16.dp, minHeight = 16.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 3.dp)) {
+                            Text(
+                                text = if (unreadCount > 9) "9+" else "$unreadCount",
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -259,7 +259,19 @@ val initialListings = listOf(
     ),
 )
 
-val initialNotifications = emptyList<AppNotification>()
+val initialNotifications = listOf(
+    AppNotification(
+        id = "notif-welcome-1",
+        userId = "user-1",
+        type = NotificationType.MESSAGE,
+        title = "New message from Sarah Lee",
+        message = "Hi! Is your TI-84 Plus CE Calculator still available?",
+        time = "10m ago",
+        read = false,
+        participantId = "user-2",
+        listingId = "listing-1"
+    )
+)
 
 val initialMessages = emptyList<Message>()
 

@@ -85,7 +85,20 @@ data class AppNotification(
     val title: String,
     val message: String,
     val time: String,
-    val read: Boolean = false
+    val read: Boolean = false,
+    val participantId: String? = null,
+    val listingId: String? = null
+)
+
+data class InAppNotificationData(
+    val id: String,
+    val title: String,
+    val message: String,
+    val senderName: String = "",
+    val participantId: String? = null,
+    val listingId: String? = null,
+    val avatarInitial: String = "S",
+    val timestamp: Long = System.currentTimeMillis()
 )
 
 data class Message(

@@ -11,6 +11,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import com.example.secondshelf.ui.components.InAppNotificationBanner
 import com.example.secondshelf.ui.AuthUiState
 import com.example.secondshelf.ui.AuthViewModel
 import com.example.secondshelf.ui.screens.*
@@ -45,7 +51,19 @@ fun AppNavigation(
         }
     }
 
-    NavHost(navController = navController, startDestination = "splash") {
+    val currentPopup = marketplaceViewModel.currentPopupNotification
+
+    // Ensure incoming message listener is active whenever user is authenticated
+    LaunchedEffect(authViewModel.getUserId()) {
+        val uid = authViewModel.getUserId()
+        if (uid.isNotBlank()) {
+            marketplaceViewModel.startMessageNotificationListener(uid)
+            marketplaceViewModel.loadConversationsFromDb(uid)
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        NavHost(navController = navController, startDestination = "splash") {
 
         composable("splash") {
             SplashScreen(
@@ -245,7 +263,13 @@ fun AppNavigation(
         composable("notifications") {
             NotificationsScreen(
                 viewModel = marketplaceViewModel,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToConversation = { participantId, listingId ->
+                    navController.navigate("conversation/$participantId/$listingId")
+                },
+                onNavigateToListing = { listingId ->
+                    navController.navigate("listing/$listingId")
+                }
             )
         }
 
@@ -322,10 +346,20 @@ fun AppNavigation(
                 navArgument("listingId") { type = NavType.StringType }
             )
         ) { backStackEntry ->
+            val participantId = backStackEntry.arguments?.getString("participantId") ?: return@composable
+            val listingId = backStackEntry.arguments?.getString("listingId") ?: return@composable
             val chatViewModel: ChatViewModel = viewModel()
+
+            DisposableEffect(participantId, listingId) {
+                marketplaceViewModel.setActiveConversation(participantId, listingId)
+                onDispose {
+                    marketplaceViewModel.clearActiveConversation()
+                }
+            }
+
             ConversationScreen(
-                participantId = backStackEntry.arguments?.getString("participantId") ?: return@composable,
-                listingId = backStackEntry.arguments?.getString("listingId") ?: return@composable,
+                participantId = participantId,
+                listingId = listingId,
                 viewModel = marketplaceViewModel,
                 chatViewModel = chatViewModel,
                 currentUserId = authViewModel.getUserId(),
@@ -396,5 +430,17 @@ fun AppNavigation(
                 }
             )
         }
+    }
+
+        // ── Global In-App Notification Banner Popup ──
+        InAppNotificationBanner(
+            notification = currentPopup,
+            onDismiss = { marketplaceViewModel.dismissPopupNotification() },
+            onClick = { participantId, listingId ->
+                marketplaceViewModel.dismissPopupNotification()
+                navController.navigate("conversation/$participantId/$listingId")
+            },
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
     }
 }
