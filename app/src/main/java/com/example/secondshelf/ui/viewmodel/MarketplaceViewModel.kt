@@ -5,6 +5,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.secondshelf.data.marketplace.CreateListingRecord
+import com.example.secondshelf.data.marketplace.ListingRecord
+import com.example.secondshelf.data.marketplace.SellerProfileRecord
+import com.example.secondshelf.data.marketplace.SupabaseMarketplaceRepository
+import com.example.secondshelf.data.marketplace.UpdateListingRecord
 import com.example.secondshelf.supabase
 import com.example.secondshelf.ui.model.*
 import io.github.jan.supabase.postgrest.postgrest
@@ -14,9 +19,13 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.json.JSONArray
+import io.github.jan.supabase.auth.auth
+import kotlinx.coroutines.launch
 import java.util.UUID
 
-class MarketplaceViewModel : ViewModel() {
+class MarketplaceViewModel(
+    private val repository: SupabaseMarketplaceRepository = SupabaseMarketplaceRepository()
+) : ViewModel() {
 
     init {
         fetchReviews()
@@ -41,6 +50,7 @@ class MarketplaceViewModel : ViewModel() {
         campus: String = "",
         avatarUrl: String = ""
     ) {
+        val previousId = currentUser.id
         val cleanId = id.ifBlank { currentUser.id }
         val cleanEmail = if (email.isNotBlank() && email != "user@example.com" && email != "null") email else currentUser.email
         val cleanName = if (name.isNotBlank() && name != "User" && name != "null" && name != "Student") {
@@ -72,12 +82,24 @@ class MarketplaceViewModel : ViewModel() {
             avatarInitial = initial,
             avatarUrl = cleanAvatarUrl
         )
+        if (cleanId != previousId && isSupabaseUserId(cleanId)) {
+            refreshMarketplace()
+        }
     }
 
-    var listings by mutableStateOf(initialListings)
+    var listings by mutableStateOf<List<Listing>>(emptyList())
         private set
 
     var favorites by mutableStateOf(setOf<String>())
+        private set
+
+    var isMarketplaceLoading by mutableStateOf(false)
+        private set
+
+    var isListingSaving by mutableStateOf(false)
+        private set
+
+    var marketplaceError by mutableStateOf<String?>(null)
         private set
 
     var reviews by mutableStateOf<List<Review>>(
@@ -158,18 +180,117 @@ class MarketplaceViewModel : ViewModel() {
         marketplaceFilters = marketplaceFilters.update()
     }
 
+    fun refreshMarketplace() {
+        viewModelScope.launch {
+            isMarketplaceLoading = true
+            marketplaceError = null
+
+            val imageUrls = repository.getListingImageUrls()
+                .getOrElse { emptyMap() }
+            val sellerProfiles = repository.getSellerProfiles()
+                .getOrElse { emptyMap() }
+
+            repository.getListings()
+                .onSuccess { records ->
+                    listings = records.map { record ->
+                        toUiListing(
+                            record = record,
+                            imageUrl = imageUrls[record.id],
+                            sellerProfile = sellerProfiles[record.sellerId]
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    marketplaceError = error.userMessage()
+                    showToast("Could not load marketplace: ${error.userMessage()}")
+                }
+
+            if (isSupabaseUserId(currentUser.id)) {
+                repository.getFavoriteListingIds(currentUser.id)
+                    .onSuccess { favorites = it }
+                    .onFailure { error ->
+                        marketplaceError = error.userMessage()
+                    }
+            } else {
+                favorites = emptySet()
+            }
+
+            isMarketplaceLoading = false
+        }
+    }
+
+    private fun toUiListing(
+        record: ListingRecord,
+        imageUrl: String? = null,
+        sellerProfile: SellerProfileRecord? = null
+    ): Listing {
+        val isOwnedByCurrentUser = record.sellerId == currentUser.id
+        val resolvedSellerName = sellerProfile?.name
+            ?.takeIf { it.isNotBlank() && it != "Student" && it != "User" }
+            ?: currentUser.name.takeIf { isOwnedByCurrentUser && it.isNotBlank() }
+            ?: "Unknown Seller"
+        val resolvedSellerCampus = sellerProfile?.campus
+            ?.takeIf { it.isNotBlank() }
+            ?: currentUser.campus.takeIf { isOwnedByCurrentUser }
+            .orEmpty()
+        val resolvedSellerAvatar = sellerProfile?.avatarUrl
+            ?.takeIf { it.isNotBlank() }
+            ?: currentUser.avatarUrl.takeIf { isOwnedByCurrentUser }
+            .orEmpty()
+
+        return Listing(
+        id = record.id,
+        title = record.title,
+        description = record.description,
+        price = record.priceCents / 100,
+        category = runCatching { Category.valueOf(record.category) }.getOrDefault(Category.OTHER),
+        condition = runCatching { Condition.valueOf(record.condition) }.getOrDefault(Condition.GOOD),
+        sellerId = record.sellerId,
+        location = record.location,
+        createdAt = record.createdAt,
+        imageUrl = imageUrl,
+        sellerName = resolvedSellerName,
+        sellerCampus = resolvedSellerCampus,
+        sellerAvatarUrl = resolvedSellerAvatar,
+        isOwnedByCurrentUser = isOwnedByCurrentUser
+        )
+    }
+
+    private fun isSupabaseUserId(id: String): Boolean =
+        runCatching { UUID.fromString(id) }.isSuccess
+
+    private fun authenticatedUserId(): String? =
+        supabase.auth.currentUserOrNull()?.id?.takeIf(::isSupabaseUserId)
+
+    private fun Throwable.userMessage(): String =
+        message?.substringBefore("\n")?.take(160) ?: "Unknown Supabase error"
+
     fun getListing(id: String): Listing? = listings.find { it.id == id }
 
     fun isFavorite(listingId: String) = favorites.contains(listingId)
 
     fun toggleFavorite(listingId: String) {
-        val listing = getListing(listingId)
-        favorites = if (favorites.contains(listingId)) {
-            showToast("Removed from saved items")
-            favorites - listingId
-        } else {
-            showToast("Saved \"${listing?.title ?: "item"}\"")
-            favorites + listingId
+        if (!isSupabaseUserId(currentUser.id)) {
+            showToast("Please sign in before saving an item")
+            return
+        }
+
+        val wasFavorite = favorites.contains(listingId)
+        favorites = if (wasFavorite) favorites - listingId else favorites + listingId
+
+        viewModelScope.launch {
+            val result = if (wasFavorite) {
+                repository.removeFavorite(currentUser.id, listingId)
+            } else {
+                repository.addFavorite(currentUser.id, listingId)
+            }
+
+            result.onSuccess {
+                showToast(if (wasFavorite) "Removed from saved items" else "Item saved")
+            }.onFailure { error ->
+                favorites = if (wasFavorite) favorites + listingId else favorites - listingId
+                showToast("Could not update saved item: ${error.userMessage()}")
+            }
         }
     }
 
@@ -258,42 +379,78 @@ class MarketplaceViewModel : ViewModel() {
         price: Int,
         category: Category,
         condition: Condition,
-        location: String
-    ): String? {
-        if (title.isBlank()) return "Item name is required"
-        if (description.isBlank()) return "Description is required"
-        if (price <= 0) return "Price must be greater than 0"
-        if (location.isBlank()) return "Location is required"
-        if (category == Category.ALL) return "Please select a category"
+        location: String,
+        imageBytes: ByteArray? = null,
+        imageExtension: String = "jpg",
+        onComplete: (String?) -> Unit
+    ) {
+        val validationError = validateListingInput(title, description, price, category, location)
+        if (validationError != null) {
+            onComplete(validationError)
+            return
+        }
+        viewModelScope.launch {
+            isListingSaving = true
 
-        val id = "listing-${UUID.randomUUID().toString().take(8)}"
-        val listing = Listing(
-            id = id,
-            title = title.trim(),
-            description = description.trim(),
-            price = price,
-            category = category,
-            condition = condition,
-            sellerId = currentUser.id,
-            location = location.trim(),
-            createdAt = "Today"
-        )
+            // Session restoration is asynchronous in supabase-kt. Wait until Auth has
+            // finished loading the stored Google session before checking the user.
+            supabase.auth.awaitInitialization()
+            val sellerId = authenticatedUserId()
+            if (sellerId == null) {
+                isListingSaving = false
+                onComplete("Your session has expired. Please sign in again.")
+                return@launch
+            }
+            if (currentUser.id != sellerId) {
+                currentUser = currentUser.copy(id = sellerId)
+            }
 
-        listings = listOf(listing) + listings
-        notifications = listOf(
-            AppNotification(
-                id = "notif-${UUID.randomUUID().toString().take(8)}",
-                userId = currentUser.id,
-                type = NotificationType.LISTING_POSTED,
-                title = "Listing Posted",
-                message = "\"${listing.title}\" was successfully posted!",
-                time = "Just now",
-                read = false
-            )
-        ) + notifications
+            repository.createListing(
+                CreateListingRecord(
+                    sellerId = sellerId,
+                    title = title.trim(),
+                    description = description.trim(),
+                    priceCents = price * 100,
+                    category = category.name,
+                    condition = condition.name,
+                    location = location.trim()
+                )
+            ).onSuccess { record ->
+                var imageUrl: String? = null
+                if (imageBytes != null) {
+                    repository.uploadListingImage(
+                        listingId = record.id,
+                        userId = sellerId,
+                        bytes = imageBytes,
+                        extension = imageExtension
+                    ).onSuccess { uploadedUrl ->
+                        imageUrl = uploadedUrl
+                    }.onFailure { uploadError ->
+                        marketplaceError = uploadError.userMessage()
+                        showToast("Listing posted, but image upload failed: ${uploadError.userMessage()}")
+                    }
+                }
 
-        showToast("Listing created successfully!")
-        return null
+                val listing = toUiListing(record, imageUrl)
+                listings = listOf(listing) + listings
+                notifications = listOf(
+                    AppNotification(
+                        id = "notif-${UUID.randomUUID().toString().take(8)}",
+                        userId = currentUser.id,
+                        type = NotificationType.LISTING_POSTED,
+                        title = "Listing Posted",
+                        message = "\"${listing.title}\" was successfully posted!",
+                        time = "Just now",
+                        read = false
+                    )
+                ) + notifications
+                showToast("Listing created successfully!")
+                onComplete(null)
+            }.onFailure { error ->
+                onComplete("Could not create listing: ${error.userMessage()}")
+            }
+            isListingSaving = false
+        }
     }
 
     fun updateListing(
@@ -303,34 +460,73 @@ class MarketplaceViewModel : ViewModel() {
         price: Int,
         category: Category,
         condition: Condition,
-        location: String
-    ): String? {
-        if (title.isBlank()) return "Item name is required"
-        if (description.isBlank()) return "Description is required"
-        if (price <= 0) return "Price must be greater than 0"
-        if (location.isBlank()) return "Location is required"
-        if (category == Category.ALL) return "Please select a category"
+        location: String,
+        onComplete: (String?) -> Unit
+    ) {
+        val validationError = validateListingInput(title, description, price, category, location)
+        if (validationError != null) {
+            onComplete(validationError)
+            return
+        }
 
-        listings = listings.map { listing ->
-            if (listing.id == id) {
-                listing.copy(
+        viewModelScope.launch {
+            isListingSaving = true
+            repository.updateListing(
+                id,
+                UpdateListingRecord(
                     title = title.trim(),
                     description = description.trim(),
-                    price = price,
-                    category = category,
-                    condition = condition,
+                    priceCents = price * 100,
+                    category = category.name,
+                    condition = condition.name,
                     location = location.trim()
                 )
-            } else listing
+            ).onSuccess { record ->
+                val existingListing = listings.firstOrNull { it.id == id }
+                listings = listings.map { listing ->
+                    if (listing.id == id) {
+                        toUiListing(record, imageUrl = existingListing?.imageUrl)
+                    } else {
+                        listing
+                    }
+                }
+                showToast("Listing updated")
+                onComplete(null)
+            }.onFailure { error ->
+                onComplete("Could not update listing: ${error.userMessage()}")
+            }
+            isListingSaving = false
         }
-        showToast("Listing updated")
+    }
+
+    private fun validateListingInput(
+        title: String,
+        description: String,
+        price: Int,
+        category: Category,
+        location: String
+    ): String? {
+        if (title.trim().length !in 3..100) return "Item name must contain 3 to 100 characters"
+        if (description.trim().length !in 10..2000) return "Description must contain 10 to 2000 characters"
+        if (price <= 0 || price > 1_000_000) return "Price must be between RM 1 and RM 1,000,000"
+        if (location.trim().length !in 2..120) return "Location must contain 2 to 120 characters"
+        if (category == Category.ALL) return "Please select a category"
         return null
     }
 
     fun deleteListing(id: String) {
+        val removed = getListing(id) ?: return
         listings = listings.filter { it.id != id }
         favorites = favorites - id
-        showToast("Listing deleted")
+
+        viewModelScope.launch {
+            repository.deleteListing(id)
+                .onSuccess { showToast("Listing deleted") }
+                .onFailure { error ->
+                    listings = listOf(removed) + listings
+                    showToast("Could not delete listing: ${error.userMessage()}")
+                }
+        }
     }
 
     fun sendMessage(listingId: String, receiverId: String, text: String) {
@@ -539,7 +735,7 @@ class MarketplaceViewModel : ViewModel() {
     }
 
     fun clearAllUserData() {
-        listings = initialListings
+        listings = emptyList()
         favorites = emptySet()
         notifications = emptyList()
         messages = emptyList()
