@@ -25,6 +25,8 @@ import com.example.secondshelf.ui.model.formatListingDate
 import com.example.secondshelf.ui.model.formatPrice
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListingDetailScreen(
@@ -34,7 +36,11 @@ fun ListingDetailScreen(
     onContactSeller: (participantId: String, listingId: String) -> Unit,
     onViewSeller: (sellerId: String) -> Unit,
     onEditListing: (String) -> Unit = {}
+
 ) {
+    //QR CODE TESTING REMOVE LATER
+    var showTestQr by remember { mutableStateOf(false) }
+    //-------------------------------------------------------------------
     val listing = viewModel.getListing(listingId)
     val context = LocalContext.current
 
@@ -225,6 +231,16 @@ fun ListingDetailScreen(
                         Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFFD1D5DB))
                     }
                 }
+                //QR CODE TESTING REMOVE LATER
+                Spacer(Modifier.height(20.dp))
+                Button(
+                    onClick = { showTestQr = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("TEST: Generate QR", color = Color.White)
+                }
+                //-----------------------------------------------
             }
         }
 
@@ -288,6 +304,25 @@ fun ListingDetailScreen(
                 }
             }
         }
+
+        //QR CODE TESITNG REMOVE LATER
+        if (showTestQr) {
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { showTestQr = false },
+                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    QrScreen(
+                        onNavigateBack = { showTestQr = false },
+                        transactionToken = listing.title, // Passes the listing name to the QR generator
+                        itemName = listing.title,
+                        price = formatPrice(listing.price), // Using your existing formatting function
+                        sellerName = listing.sellerName
+                    )
+                }
+            }
+        }
+        //----------------------------------------------------------------------------------------------------------
     }
 }
 
@@ -318,4 +353,6 @@ fun ListingDetailScreenPreview() {
         )
     }
 }
+
+
 

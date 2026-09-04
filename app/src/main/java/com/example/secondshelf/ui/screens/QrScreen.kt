@@ -95,7 +95,7 @@ fun QrScreen(
                     Image(
                         bitmap = qrBitmap.asImageBitmap(),
                         contentDescription = "Transaction QR Code",
-                        modifier = Modifier.size(220.dp) // Slightly smaller to leave a margin
+                        modifier = Modifier.size(220.dp)
                     )
                 } else {
                     //fallback in case generation fails
