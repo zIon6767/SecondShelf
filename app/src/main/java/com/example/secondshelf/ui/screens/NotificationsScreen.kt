@@ -149,7 +149,7 @@ private fun notificationIcon(type: NotificationType): Pair<ImageVector, Color> =
 fun NotificationsScreenPreview() {
     com.example.secondshelf.ui.theme.SecondShelfTheme {
         NotificationsScreen(
-            viewModel = MarketplaceViewModel(),
+            viewModel = MarketplaceViewModel(android.app.Application()),
             onNavigateBack = {}
         )
     }

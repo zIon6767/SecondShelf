@@ -178,8 +178,14 @@ fun AppNavigation(
                 onNavigateToCreateListing = { navController.navigate("create_listing") },
                 onNavigateToSaved = { navController.navigate("saved") },
                 onNavigateToMessages = { navController.navigate("messages") },
+                onNavigateToChat = { participantId, listingId ->
+                    navController.navigate("conversation/$participantId/$listingId")
+                },
                 onNavigateToEditProfile = { navController.navigate("edit_profile") },
                 onLogout = {
+                    // Clear all in-memory user data BEFORE signing out so the next
+                    // user that logs in on this device starts from a clean slate.
+                    marketplaceViewModel.clearAllUserData()
                     authViewModel.signOut()
                     navController.navigate("login") { popUpTo(0) { inclusive = true } }
                 }
@@ -256,6 +262,8 @@ fun AppNavigation(
                 onNavigateToCampusSafety = { navController.navigate("campus_safety") },
                 onNavigateToAbout = { navController.navigate("about") },
                 onLogout = {
+                    // Wipe in-memory user data so the next user gets a clean slate
+                    marketplaceViewModel.clearAllUserData()
                     authViewModel.signOut()
                     navController.navigate("login") { popUpTo(0) { inclusive = true } }
                 },

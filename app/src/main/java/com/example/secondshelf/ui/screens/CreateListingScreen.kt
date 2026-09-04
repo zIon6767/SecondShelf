@@ -334,7 +334,7 @@ private fun FormField(label: String, content: @Composable () -> Unit) {
 fun CreateListingScreenPreview() {
     com.example.secondshelf.ui.theme.SecondShelfTheme {
         CreateListingScreen(
-            viewModel = MarketplaceViewModel(),
+            viewModel = MarketplaceViewModel(android.app.Application()),
             onNavigateBack = {},
             onSuccess = {}
         )
