@@ -95,6 +95,13 @@ fun MessagesScreen(
     val conversations = viewModel.conversations
     val primary = MaterialTheme.colorScheme.primary
 
+    // Refresh conversation list from database on screen entry
+    LaunchedEffect(viewModel.currentUser.id) {
+        if (viewModel.currentUser.id.isNotBlank()) {
+            viewModel.loadConversationsFromDb(viewModel.currentUser.id)
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
 
         // ── Premium header ────────────────────────────────────────────────────
@@ -140,6 +147,16 @@ fun MessagesScreen(
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(conversations) { conv ->
                     val resolvedName = resolveParticipantName(conv.participantId, conv.listingId, viewModel)
+                    val listing = viewModel.getListing(conv.listingId)
+                    val localMessages = viewModel.getConversationMessages(conv.participantId, conv.listingId)
+                    val lastLocalMsg = localMessages.lastOrNull()
+                    
+                    // Source the very latest message text and timestamp
+                    val latestMessageText = lastLocalMsg?.text?.takeIf { it.isNotBlank() } ?: conv.lastMessage
+                    val latestTimestamp = lastLocalMsg?.timestamp?.takeIf { it.isNotBlank() } ?: conv.lastTimestamp
+                    val isLastFromMe = lastLocalMsg?.senderId == viewModel.currentUser.id
+                    val isLastRead = lastLocalMsg?.read == true
+
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -161,32 +178,66 @@ fun MessagesScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(resolvedName, fontWeight = FontWeight.SemiBold)
-                                    if (conv.lastTimestamp.isNotBlank()) {
+                                    Text(
+                                        text = resolvedName,
+                                        fontWeight = FontWeight.SemiBold,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    if (latestTimestamp.isNotBlank()) {
                                         Text(
-                                            text = formatChatTime(conv.lastTimestamp),
+                                            text = formatChatTime(latestTimestamp),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.secondary
                                         )
                                     }
                                 }
-                                Spacer(Modifier.height(2.dp))
+                                if (listing != null) {
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = "Item: ${listing.title}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Spacer(Modifier.height(4.dp))
+                                // ── Message Preview (Outside chat bubbles) ────
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        conv.lastMessage,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f, fill = false)
-                                    )
+                                    Row(
+                                        modifier = Modifier.weight(1f, fill = false),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        if (isLastFromMe) {
+                                            Icon(
+                                                imageVector = Icons.Default.DoneAll,
+                                                contentDescription = null,
+                                                tint = if (isLastRead) Color(0xFF2196F3) else Color(0xFF9E9E9E),
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                        }
+                                        Text(
+                                            text = latestMessageText.ifBlank { "No messages yet" },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.secondary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                     if (conv.unreadCount > 0) {
                                         Spacer(Modifier.width(8.dp))
-                                        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(8.dp)) {}
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(8.dp)
+                                        ) {}
                                     }
                                 }
                             }
