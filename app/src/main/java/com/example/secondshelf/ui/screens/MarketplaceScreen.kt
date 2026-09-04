@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -16,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.secondshelf.ui.components.*
 import com.example.secondshelf.ui.model.*
@@ -88,7 +90,13 @@ fun MarketplaceScreen(
                     filters = filters,
                     onCategoryChange = { viewModel.patchMarketplaceFilters { copy(category = it) } },
                     onConditionChange = { viewModel.patchMarketplaceFilters { copy(condition = it) } },
+                    onPriceRangeChange = { minimum, maximum ->
+                        viewModel.patchMarketplaceFilters {
+                            copy(minPrice = minimum, maxPrice = maximum)
+                        }
+                    },
                     onSortChange = { viewModel.patchMarketplaceFilters { copy(sort = it) } },
+                    onReset = { viewModel.updateFilters(ListingFilters()) },
                     modifier = Modifier.padding(horizontal = 20.dp)
                 )
                 Spacer(Modifier.height(8.dp))
@@ -129,7 +137,9 @@ private fun MarketplaceFiltersPanel(
     filters: ListingFilters,
     onCategoryChange: (Category) -> Unit,
     onConditionChange: (Condition?) -> Unit,
+    onPriceRangeChange: (Int?, Int?) -> Unit,
     onSortChange: (SortOption) -> Unit,
+    onReset: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -138,6 +148,17 @@ private fun MarketplaceFiltersPanel(
         color = MaterialTheme.colorScheme.surface
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Refine results", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                TextButton(onClick = onReset) {
+                    Text("Reset")
+                }
+            }
+
             Text("Category", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             CategorySelector(
                 selected = filters.category,
@@ -161,8 +182,46 @@ private fun MarketplaceFiltersPanel(
                 }
             }
 
+            Text("Price range (RM)", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = filters.minPrice?.toString().orEmpty(),
+                    onValueChange = { value ->
+                        onPriceRangeChange(value.filter(Char::isDigit).toIntOrNull(), filters.maxPrice)
+                    },
+                    label = { Text("Minimum") },
+                    placeholder = { Text("0") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = filters.maxPrice?.toString().orEmpty(),
+                    onValueChange = { value ->
+                        onPriceRangeChange(filters.minPrice, value.filter(Char::isDigit).toIntOrNull())
+                    },
+                    label = { Text("Maximum") },
+                    placeholder = { Text("Any") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            if (filters.minPrice != null && filters.maxPrice != null && filters.minPrice > filters.maxPrice) {
+                Text(
+                    "Minimum price cannot be higher than maximum price",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
             Text("Sort by", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 SortOption.entries.forEach { sort ->
                     FilterChip(
                         selected = filters.sort == sort,
