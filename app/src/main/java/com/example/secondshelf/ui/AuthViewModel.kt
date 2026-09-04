@@ -247,21 +247,50 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     // ── Email / Password Auth ─────────────────────────────────────────────────
 
     fun signIn(email: String, password: String) {
+        val trimmedEmail = email.trim().lowercase()
+        if (!trimmedEmail.endsWith("@student.tarc.edu.my")) {
+            setError("Access restricted to TAR UMT students only. Please use your @student.tarc.edu.my email.")
+            return
+        }
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
-            runCatching {
+            try {
                 supabase.auth.signInWith(Email) {
-                    this.email    = email
+                    this.email    = trimmedEmail
                     this.password = password
                 }
-            }.onSuccess {
                 val user = supabase.auth.currentUserOrNull()
                 val uid = user?.id ?: getUserId()
-                val fallbackName = getUserFullName().ifBlank { email.substringBefore("@").replace(".", " ") }
-                restoreProfileFromDatabase(uid, email, fallbackName)
+                val fallbackName = getUserFullName().ifBlank { trimmedEmail.substringBefore("@").replace(".", " ") }
+                restoreProfileFromDatabase(uid, trimmedEmail, fallbackName)
                 _uiState.value = AuthUiState.Success
-            }.onFailure { e ->
+            } catch (e: Exception) {
                 setError(mapSignInError(e))
+            }
+        }
+    }
+
+    /**
+     * Sends a password reset link to the given email via Supabase.
+     * The user will receive an email with a link to reset their password.
+     */
+    fun sendPasswordReset(email: String, onResult: (success: Boolean, message: String) -> Unit) {
+        val trimmedEmail = email.trim().lowercase()
+        if (trimmedEmail.isBlank()) {
+            onResult(false, "Please enter your email address.")
+            return
+        }
+        if (!trimmedEmail.endsWith("@student.tarc.edu.my")) {
+            onResult(false, "Only @student.tarc.edu.my email addresses are accepted.")
+            return
+        }
+        viewModelScope.launch {
+            runCatching {
+                supabase.auth.resetPasswordForEmail(trimmedEmail)
+            }.onSuccess {
+                onResult(true, "Password reset link sent! Please check your student email inbox.")
+            }.onFailure { e ->
+                onResult(false, "Failed to send reset link: ${e.localizedMessage ?: "Please try again."}")
             }
         }
     }
@@ -392,6 +421,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     ?: user.userMetadata?.get("email")?.toString()?.trim('"')?.trim()?.lowercase()
                     ?: getUserEmail().trim().lowercase()
 
+                // ── Domain restriction: only @student.tarc.edu.my allowed ──
+                if (!email.endsWith("@student.tarc.edu.my")) {
+                    runCatching { supabase.auth.signOut() }
+                    setError("Access restricted to TAR UMT students only. Please use your @student.tarc.edu.my Google account.")
+                    return@launch
+                }
+
                 val metaName = user.userMetadata?.get("full_name")?.toString()?.trim('"')
                     ?: user.userMetadata?.get("name")?.toString()?.trim('"')
 
@@ -425,8 +461,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             }.onFailure { e ->
                 setError("Google sign-in failed: ${e.message}")
             }
-        }
-    }
+        }   // end viewModelScope.launch
+    }   // end handleAuthCallback
 
     /**
      * Restores user profile data from the Supabase 'profiles' table after login so

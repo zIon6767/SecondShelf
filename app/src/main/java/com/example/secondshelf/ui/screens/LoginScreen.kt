@@ -33,17 +33,21 @@ import com.example.secondshelf.ui.AuthUiState
 import com.example.secondshelf.ui.AuthViewModel
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helper: Check if an email address is in a valid format
+// Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 private fun isValidLoginEmail(email: String): Boolean {
     val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
     return emailRegex.matches(email.trim())
 }
 
+/** Only @student.tarc.edu.my emails are allowed to access the app. */
+private fun isTarcStudentEmail(email: String): Boolean =
+    email.trim().lowercase().endsWith("@student.tarc.edu.my")
+
 // ─────────────────────────────────────────────────────────────────────────────
 // LoginScreen
-// Allows the user to sign in using email/password or Google account.
-// All real data comes from Supabase — no dummy data used.
+// Allows TAR UMT students to sign in using their @student.tarc.edu.my email
+// or Google account. All real data comes from Supabase — no dummy data used.
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun LoginScreen(
@@ -71,6 +75,119 @@ fun LoginScreen(
             viewModel?.resetState()
             onNavigateToHome()
         }
+    }
+
+    // ── Forgot Password Dialog State ─────────────────────────────────────────
+    var showForgotDialog   by remember { mutableStateOf(false) }
+    var resetEmail         by remember { mutableStateOf("") }
+    var resetEmailError    by remember { mutableStateOf("") }
+    var resetResultMessage by remember { mutableStateOf("") }
+    var resetIsSuccess     by remember { mutableStateOf(false) }
+    var isSendingReset     by remember { mutableStateOf(false) }
+
+    // ── Forgot Password Dialog ───────────────────────────────────────────────
+    if (showForgotDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showForgotDialog = false
+                resetEmail = ""
+                resetEmailError = ""
+                resetResultMessage = ""
+            },
+            title = { Text("Reset Password", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Enter your @student.tarc.edu.my email and we will send you a password reset link.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                    OutlinedTextField(
+                        value = resetEmail,
+                        onValueChange = {
+                            resetEmail = it
+                            resetEmailError = ""
+                            resetResultMessage = ""
+                        },
+                        label = { Text("Student Email") },
+                        placeholder = { Text("name@student.tarc.edu.my") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Email, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary)
+                        },
+                        isError = resetEmailError.isNotEmpty(),
+                        supportingText = if (resetEmailError.isNotEmpty()) {
+                            { Text(resetEmailError, color = MaterialTheme.colorScheme.error) }
+                        } else null,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        enabled = !isSendingReset
+                    )
+                    // Result feedback after attempting to send reset link
+                    if (resetResultMessage.isNotEmpty()) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (resetIsSuccess) Color(0xFFE8F5E9)
+                                    else MaterialTheme.colorScheme.errorContainer,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = resetResultMessage,
+                                color = if (resetIsSuccess) Color(0xFF2E7D32)
+                                        else MaterialTheme.colorScheme.onErrorContainer,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        when {
+                            resetEmail.isBlank() ->
+                                resetEmailError = "Please enter your email address."
+                            !isTarcStudentEmail(resetEmail) ->
+                                resetEmailError = "Only @student.tarc.edu.my email is accepted."
+                            else -> {
+                                isSendingReset = true
+                                viewModel?.sendPasswordReset(resetEmail) { success, message ->
+                                    isSendingReset = false
+                                    resetIsSuccess = success
+                                    resetResultMessage = message
+                                }
+                            }
+                        }
+                    },
+                    enabled = !isSendingReset,
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    if (isSendingReset) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Sending...")
+                    } else {
+                        Text("Send Reset Link")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showForgotDialog = false
+                    resetEmail = ""
+                    resetEmailError = ""
+                    resetResultMessage = ""
+                }) { Text("Close") }
+            },
+            shape = RoundedCornerShape(16.dp)
+        )
     }
 
     // ── Screen Layout ────────────────────────────────────────────────────────
@@ -132,9 +249,9 @@ fun LoginScreen(
                 }
             }
 
-            // Email input field
+            // Email input field — restricted to @student.tarc.edu.my
             Text(
-                text = "Email",
+                text = "Student Email",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(bottom = 6.dp)
@@ -146,7 +263,7 @@ fun LoginScreen(
                     emailError = ""
                     if (uiState is AuthUiState.Error) viewModel?.resetState()
                 },
-                placeholder = { Text("Enter your email") },
+                placeholder = { Text("name@student.tarc.edu.my") },
                 leadingIcon = {
                     Icon(
                         Icons.Default.Email,
@@ -222,9 +339,9 @@ fun LoginScreen(
                 )
             )
 
-            // Forgot password link (right-aligned)
+            // Forgot password link — opens the reset dialog
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                TextButton(onClick = {}, enabled = !isLoading) {
+                TextButton(onClick = { showForgotDialog = true }, enabled = !isLoading) {
                     Text(
                         "Forgot Password?",
                         color = MaterialTheme.colorScheme.primary,
@@ -235,12 +352,15 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Login button — validates fields before calling Supabase
+            // Login button — validates domain before calling Supabase
             Button(
                 onClick = {
                     var valid = true
                     if (email.isBlank() || !isValidLoginEmail(email)) {
                         emailError = "Please enter a valid email address."
+                        valid = false
+                    } else if (!isTarcStudentEmail(email)) {
+                        emailError = "Email not valid."
                         valid = false
                     }
                     if (password.length < 6) {
@@ -282,7 +402,7 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Google sign-in button
+            // Google sign-in button — only @student.tarc.edu.my Google accounts are accepted
             OutlinedButton(
                 onClick = { viewModel?.signInWithGoogle(context) },
                 modifier = Modifier

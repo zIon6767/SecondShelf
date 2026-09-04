@@ -149,8 +149,6 @@ fun SettingsScreen(
             SettingsGroup {
                 SettingsNavItem(Icons.Default.Edit, "Edit Profile", Color(0xFF34C759), onNavigateToEditProfile)
                 HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
-                SettingsNavItem(Icons.Default.Inventory2, "My Listings", MaterialTheme.colorScheme.primary, onNavigateToMyListings)
-                HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
                 SettingsNavItem(Icons.Default.Favorite, "Saved Items", Color(0xFFFF3B30), onNavigateToSaved)
                 HorizontalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.padding(start = 56.dp))
                 SettingsNavItem(Icons.Default.Chat, "Chat & Messages", Color(0xFF5856D6), onNavigateToChatSettings)

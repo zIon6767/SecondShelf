@@ -889,32 +889,41 @@ private fun ProfileTab(
                 val avgRating = viewModel.getAverageRatingForUser(user.id)
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFFFF8E1),
-                    border = BorderStroke(1.dp, Color(0xFFFFD54F)),
+                    color = if (userReviews.isEmpty()) Color(0xFFF4F7FB) else Color(0xFFFFF8E1),
+                    border = BorderStroke(1.dp, if (userReviews.isEmpty()) Color(0xFFE5E7EB) else Color(0xFFFFD54F)),
                     modifier = Modifier.padding(top = 8.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = null,
-                            tint = Color(0xFFFFB800),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            text = if (userReviews.isEmpty()) "5.0" else String.format(java.util.Locale.US, "%.1f", avgRating),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = Color(0xFFB78103)
-                        )
-                        Text(
-                            text = if (userReviews.isEmpty()) " (New Seller)" else " (${userReviews.size} review${if (userReviews.size == 1) "" else "s"})",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
+                        if (userReviews.isEmpty()) {
+                            Text(
+                                text = "New Seller",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                tint = Color(0xFFFFB800),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = String.format(java.util.Locale.US, "%.1f", avgRating),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = Color(0xFFB78103)
+                            )
+                            Text(
+                                text = " (${userReviews.size} review${if (userReviews.size == 1) "" else "s"})",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
                     }
                 }
 
@@ -950,7 +959,7 @@ private fun ProfileTab(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Student Reviews (${allUserReviews.size})",
+                            "Reviews (${allUserReviews.size})",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -1005,12 +1014,12 @@ private fun ProfileTab(
                                     )
                                     Spacer(Modifier.height(8.dp))
                                     Text(
-                                        "No student reviews yet",
+                                        "No reviews yet",
                                         fontWeight = FontWeight.SemiBold,
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                     Text(
-                                        "Reviews given by other students will appear here when you complete deals on Second Shelf.",
+                                        "Reviews given by others will appear here when you complete deals on Second Shelf.",
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.secondary,
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
