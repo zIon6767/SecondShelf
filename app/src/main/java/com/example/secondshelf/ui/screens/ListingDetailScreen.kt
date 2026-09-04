@@ -310,7 +310,7 @@ fun ListingDetailScreenPreview() {
     com.example.secondshelf.ui.theme.SecondShelfTheme {
         ListingDetailScreen(
             listingId = "listing-1",
-            viewModel = MarketplaceViewModel(android.app.Application()),
+            viewModel = MarketplaceViewModel(),
             onNavigateBack = {},
             onContactSeller = { _, _ -> },
             onViewSeller = {},
