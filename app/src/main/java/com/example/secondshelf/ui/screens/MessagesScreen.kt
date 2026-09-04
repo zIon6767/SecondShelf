@@ -35,6 +35,29 @@ import com.example.secondshelf.ui.model.getUserById
 import com.example.secondshelf.ui.viewmodel.ChatViewModel
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 
+private fun formatChatTime(raw: String): String {
+    if (raw.isBlank()) return ""
+    return runCatching {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            try {
+                val zonedDateTime = java.time.OffsetDateTime.parse(raw).atZoneSameInstant(java.time.ZoneId.systemDefault())
+                return zonedDateTime.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            } catch (_: Exception) {
+                try {
+                    val ldt = java.time.LocalDateTime.parse(raw.take(19))
+                    return ldt.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+                } catch (_: Exception) {}
+            }
+        }
+        val clean = raw.replace("T", " ")
+        if (clean.contains(" ")) {
+            clean.substringAfter(" ").take(5)
+        } else {
+            clean.take(5)
+        }
+    }.getOrDefault(raw.take(5))
+}
+
 @Composable
 fun MessagesScreen(
     viewModel: MarketplaceViewModel,
@@ -122,11 +145,39 @@ fun MessagesScreen(
                             }
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(getSellerName(conv.participantId), fontWeight = FontWeight.SemiBold)
-                                Text(conv.lastMessage, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                            if (conv.unreadCount > 0) {
-                                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(8.dp)) {}
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(getSellerName(conv.participantId), fontWeight = FontWeight.SemiBold)
+                                    if (conv.lastTimestamp.isNotBlank()) {
+                                        Text(
+                                            text = formatChatTime(conv.lastTimestamp),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.height(2.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        conv.lastMessage,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    )
+                                    if (conv.unreadCount > 0) {
+                                        Spacer(Modifier.width(8.dp))
+                                        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(8.dp)) {}
+                                    }
+                                }
                             }
                         }
                     }
@@ -149,6 +200,32 @@ fun ConversationScreen(
     var messageText by remember { mutableStateOf("") }
     val listing = viewModel.getListing(listingId)
     val listState = rememberLazyListState()
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("second_shelf_chat_settings", Context.MODE_PRIVATE) }
+    var blockedAccounts by remember {
+        mutableStateOf(
+            prefs.getStringSet("blocked_accounts", emptySet())?.toSet() ?: emptySet()
+        )
+    }
+    val isBlocked = participantId in blockedAccounts || getSellerName(participantId) in blockedAccounts
+
+    fun blockUser() {
+        val updated = blockedAccounts + participantId + getSellerName(participantId)
+        blockedAccounts = updated
+        prefs.edit().putStringSet("blocked_accounts", updated).apply()
+        viewModel.showToast("Account blocked")
+    }
+
+    fun unblockUser() {
+        val updated = blockedAccounts - participantId - getSellerName(participantId)
+        blockedAccounts = updated
+        prefs.edit().putStringSet("blocked_accounts", updated).apply()
+        viewModel.showToast("Account unblocked")
+    }
+
+    var showRatingDialog by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var showBlockConfirmDialog by remember { mutableStateOf(false) }
 
     // ── Initialise chat on first composition ──────────────────────────────────
     LaunchedEffect(participantId, listingId) {
@@ -173,8 +250,6 @@ fun ConversationScreen(
         chatViewModel.onResume()
     }
 
-    var showRatingDialog by remember { mutableStateOf(false) }
-
     if (showRatingDialog) {
         com.example.secondshelf.ui.components.RatingReviewDialog(
             targetUserName = getSellerName(participantId),
@@ -192,6 +267,31 @@ fun ConversationScreen(
         )
     }
 
+    if (showBlockConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showBlockConfirmDialog = false },
+            title = { Text("Block Account") },
+            text = {
+                Text("Are you sure you want to block ${uiState.participantName.ifBlank { getSellerName(participantId) }}? You will no longer be able to message each other.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showBlockConfirmDialog = false
+                        blockUser()
+                    }
+                ) {
+                    Text("Block", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBlockConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
 
         // ── Premium conversation header ─────────────────────────────────────
@@ -204,7 +304,7 @@ fun ConversationScreen(
                 .padding(horizontal = 20.dp)
                 .padding(top = 12.dp, bottom = 14.dp)
         ) {
-            // Back + Rate Deal row
+            // Back + Rate Deal + Kebab Menu Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -226,16 +326,60 @@ fun ConversationScreen(
                         )
                     }
                 }
-                Button(
-                    onClick = { showRatingDialog = true },
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = primary.copy(alpha = 0.12f),
-                        contentColor = primary
-                    ),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                ) {
-                    Text("★ Rate Deal", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Button(
+                        onClick = { showRatingDialog = true },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = primary.copy(alpha = 0.12f),
+                            contentColor = primary
+                        ),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                    ) {
+                        Text("★ Rate Deal", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                    Spacer(Modifier.width(4.dp))
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                Icons.Default.MoreVert,
+                                contentDescription = "More options",
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            if (isBlocked) {
+                                DropdownMenuItem(
+                                    text = { Text("Unblock Account") },
+                                    onClick = {
+                                        showMenu = false
+                                        unblockUser()
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.LockOpen, contentDescription = null)
+                                    }
+                                )
+                            } else {
+                                DropdownMenuItem(
+                                    text = { Text("Block Account", color = MaterialTheme.colorScheme.error) },
+                                    onClick = {
+                                        showMenu = false
+                                        showBlockConfirmDialog = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.Block,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -333,10 +477,7 @@ fun ConversationScreen(
                                     )
                                     // Timestamp
                                     val timeDisplay = remember(msg.createdAt) {
-                                        runCatching {
-                                            val raw = msg.createdAt.take(16).replace("T", " ")
-                                            raw.substringAfter(" ") // HH:mm
-                                        }.getOrDefault(msg.createdAt.take(5))
+                                        formatChatTime(msg.createdAt)
                                     }
                                     Text(
                                         timeDisplay,
@@ -348,28 +489,65 @@ fun ConversationScreen(
                                 }
                             }
                         }
-                        // ── "Read" receipt badge (only for our own messages) ──
-                        if (isMe && msg.isRead) {
+                        // ── Double checkmark delivery & read status (below outgoing message bubble) ──
+                        if (isMe) {
                             Spacer(Modifier.height(2.dp))
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.End,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth().padding(end = 4.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.DoneAll,
-                                    contentDescription = "Read",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(13.dp)
+                                    contentDescription = if (msg.isRead) "Read (✓✓)" else "Delivered (✓✓)",
+                                    tint = if (msg.isRead) Color(0xFF2196F3) else Color(0xFF9E9E9E),
+                                    modifier = Modifier.size(16.dp)
                                 )
-                                Spacer(Modifier.width(2.dp))
+                                Spacer(Modifier.width(3.dp))
                                 Text(
-                                    "Read",
+                                    text = if (msg.isRead) "Read" else "Delivered",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = if (msg.isRead) Color(0xFF2196F3) else Color(0xFF9E9E9E),
+                                    fontSize = 11.sp
                                 )
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        // ── Blocked user banner ───────────────────────────────────────────────
+        if (isBlocked) {
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Block,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "You have blocked this account.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    TextButton(onClick = { unblockUser() }) {
+                        Text("Unblock", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
@@ -402,10 +580,11 @@ fun ConversationScreen(
                 OutlinedTextField(
                     value = messageText,
                     onValueChange = { messageText = it },
-                    placeholder = { Text("Type a message…") },
+                    placeholder = { Text(if (isBlocked) "Account is blocked" else "Type a message…") },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(24.dp),
-                    singleLine = true
+                    singleLine = true,
+                    enabled = !isBlocked
                 )
                 Spacer(Modifier.width(8.dp))
                 FilledIconButton(
@@ -413,7 +592,7 @@ fun ConversationScreen(
                         chatViewModel.sendMessage(messageText)
                         messageText = ""
                     },
-                    enabled = messageText.isNotBlank() && !uiState.isSending
+                    enabled = messageText.isNotBlank() && !uiState.isSending && !isBlocked
                 ) {
                     if (uiState.isSending) {
                         CircularProgressIndicator(
@@ -434,11 +613,7 @@ fun ConversationScreen(
 @Composable
 fun MessagesScreenPreview() {
     com.example.secondshelf.ui.theme.SecondShelfTheme {
-        MessagesScreen(
-            viewModel = MarketplaceViewModel(),
-            onNavigateBack = {},
-            onConversationClick = { _, _ -> }
-        )
+        // Preview
     }
 }
 
