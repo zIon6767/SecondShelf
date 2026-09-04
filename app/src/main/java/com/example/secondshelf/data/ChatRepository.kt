@@ -21,7 +21,12 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-private val jsonSerializer = Json { ignoreUnknownKeys = true }
+private val jsonSerializer = Json { 
+    ignoreUnknownKeys = true 
+    coerceInputValues = true
+    isLenient = true
+    explicitNulls = false
+}
 
 /**
  * Repository responsible for all Supabase interactions related to the in-app chat.
@@ -29,6 +34,15 @@ private val jsonSerializer = Json { ignoreUnknownKeys = true }
 class ChatRepository {
 
     private var channel: RealtimeChannel? = null
+
+    suspend fun fetchUserName(userId: String): String? = runCatching {
+        supabase.postgrest.rpc("get_marketplace_seller_profiles")
+            .decodeList<com.example.secondshelf.data.marketplace.SellerProfileRecord>()
+            .find { it.id == userId }
+            ?.name
+            ?.takeIf { it.isNotBlank() && it != "Student" && it != "User" }
+    }.getOrNull()
+
 
     // ── Read ──────────────────────────────────────────────────────────────────
 
@@ -158,6 +172,8 @@ class ChatRepository {
             runCatching {
                 val msg = jsonSerializer.decodeFromJsonElement(ChatMessage.serializer(), action.record)
                 onNewMessage(msg)
+            }.onFailure { e ->
+                android.util.Log.e("ChatRepository", "Error parsing incoming INSERT message", e)
             }
         }.launchIn(scope)
 
@@ -169,18 +185,24 @@ class ChatRepository {
             runCatching {
                 val msg = jsonSerializer.decodeFromJsonElement(ChatMessage.serializer(), action.record)
                 onMessageUpdated(msg)
+            }.onFailure { e ->
+                android.util.Log.e("ChatRepository", "Error parsing incoming UPDATE message", e)
             }
         }.launchIn(scope)
 
         // 3. Presence tracking via presenceDataFlow
         ch.presenceDataFlow<PresenceState>()
             .onEach { presenceList ->
-                val onlineIds = presenceList.map { it.userId }.toSet()
-                onPresenceChange(onlineIds)
+                runCatching {
+                    val onlineIds = presenceList.map { it.userId }.toSet()
+                    onPresenceChange(onlineIds)
+                }
             }.launchIn(scope)
 
-        ch.subscribe(blockUntilSubscribed = true)
-        ch.track(PresenceState(userId = myUserId))
+        runCatching {
+            ch.subscribe(blockUntilSubscribed = true)
+            ch.track(PresenceState(userId = myUserId))
+        }
     }
 
     suspend fun leaveChat() {

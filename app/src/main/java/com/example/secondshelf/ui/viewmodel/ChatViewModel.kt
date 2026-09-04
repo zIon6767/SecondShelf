@@ -84,6 +84,14 @@ class ChatViewModel : ViewModel() {
         }
 
         viewModelScope.launch {
+            // If name is blank or default, try fetching real seller profile name in background
+            if (_uiState.value.participantName.isBlank() || _uiState.value.participantName in listOf("Student", "Unknown Seller", "Seller")) {
+                val fetched = repository.fetchUserName(participantId)
+                if (!fetched.isNullOrBlank()) {
+                    _uiState.update { it.copy(participantName = fetched) }
+                }
+            }
+
             // 1. Load history
             val history = repository.loadMessages(myUserId, participantId, listingId)
             _uiState.update { it.copy(messages = history) }
@@ -124,15 +132,42 @@ class ChatViewModel : ViewModel() {
     // ── Send ──────────────────────────────────────────────────────────────────
 
     /**
-     * Sends [content] as a new message.  The UI is optimistically not updated
-     * here; the INSERT Realtime event from Supabase will trigger [handleIncomingMessage]
-     * and append it to the list.
+     * Sends [content] as a new message.
+     * Optimistically appends the message immediately to the UI for zero perceived lag,
+     * and asynchronously synchronizes with Supabase.
      */
     fun sendMessage(content: String) {
         val trimmed = content.trim()
         if (trimmed.isBlank() || myUserId.isBlank()) return
 
-        _uiState.update { it.copy(isSending = true, error = null) }
+        val nowIso = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            java.time.Instant.now().toString()
+        } else {
+            java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
+                timeZone = java.util.TimeZone.getTimeZone("UTC")
+            }.format(java.util.Date())
+        }
+
+        val tempId = "temp_${System.currentTimeMillis()}_${java.util.UUID.randomUUID().toString().take(6)}"
+        val optimisticMsg = ChatMessage(
+            id = tempId,
+            senderId = myUserId,
+            receiverId = participantId,
+            listingId = listingId,
+            content = trimmed,
+            isRead = false,
+            createdAt = nowIso
+        )
+
+        // Optimistically show message immediately
+        _uiState.update { state ->
+            state.copy(
+                messages = state.messages + optimisticMsg,
+                isSending = true,
+                error = null
+            )
+        }
+
         viewModelScope.launch {
             repository.sendMessage(
                 senderId = myUserId,
@@ -149,11 +184,14 @@ class ChatViewModel : ViewModel() {
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private suspend fun markRead() {
-        repository.markMessagesRead(
-            myId = myUserId,
-            senderId = participantId,
-            listingId = listingId
-        )
+        if (myUserId.isBlank() || participantId.isBlank() || listingId.isBlank()) return
+        runCatching {
+            repository.markMessagesRead(
+                myId = myUserId,
+                senderId = participantId,
+                listingId = listingId
+            )
+        }
         // Optimistically flip is_read in local state so the list updates instantly
         _uiState.update { state ->
             state.copy(
@@ -166,9 +204,8 @@ class ChatViewModel : ViewModel() {
     }
 
     /**
-     * Handles a Realtime INSERT event.  Appends the message to the list if it
-     * belongs to this conversation.  If the new message was sent by the
-     * participant (not us), also triggers a read receipt.
+     * Handles a Realtime INSERT event. Appends or reconciles the message if it
+     * belongs to this conversation.
      */
     private fun handleIncomingMessage(msg: ChatMessage) {
         // Filter: only accept messages that belong to this conversation
@@ -178,10 +215,22 @@ class ChatViewModel : ViewModel() {
         if (!belongsHere) return
 
         _uiState.update { state ->
-            // Avoid duplicates (Realtime may echo back our own sent message)
-            val alreadyPresent = state.messages.any { it.id == msg.id }
-            if (alreadyPresent) state
-            else state.copy(messages = state.messages + msg)
+            // Reconcile optimistic temp message if sent by us
+            val tempIndex = state.messages.indexOfFirst {
+                it.id.startsWith("temp_") && it.senderId == msg.senderId && it.content == msg.content
+            }
+            if (tempIndex != -1) {
+                val updatedList = state.messages.toMutableList()
+                updatedList[tempIndex] = msg
+                state.copy(messages = updatedList)
+            } else {
+                val alreadyPresent = state.messages.any {
+                    (it.id.isNotBlank() && it.id == msg.id) ||
+                    (it.senderId == msg.senderId && it.content == msg.content && it.createdAt == msg.createdAt)
+                }
+                if (alreadyPresent) state
+                else state.copy(messages = state.messages + msg)
+            }
         }
 
         // Auto-mark as read when participant sends to us
@@ -191,14 +240,15 @@ class ChatViewModel : ViewModel() {
     }
 
     /**
-     * Handles a Realtime UPDATE event.  Replaces the matching message in the
+     * Handles a Realtime UPDATE event. Replaces the matching message in the
      * list with the updated version (e.g. is_read flipped to true).
      */
     private fun handleMessageUpdated(updated: ChatMessage) {
         _uiState.update { state ->
             state.copy(
                 messages = state.messages.map { msg ->
-                    if (msg.id == updated.id) updated else msg
+                    if (msg.id == updated.id || (msg.senderId == updated.senderId && msg.content == updated.content && msg.createdAt == updated.createdAt)) updated
+                    else msg
                 }
             )
         }
