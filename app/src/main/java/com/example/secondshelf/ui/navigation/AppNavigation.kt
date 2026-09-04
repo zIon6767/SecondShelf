@@ -11,19 +11,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.ui.Modifier
 import com.example.secondshelf.ui.AuthUiState
 import com.example.secondshelf.ui.AuthViewModel
 import com.example.secondshelf.ui.screens.*
-import com.example.secondshelf.ui.theme.SecondShelfTheme
 import com.example.secondshelf.ui.viewmodel.ChatViewModel
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 
 @Composable
-fun AppNavigation(authCallbackUri: Uri? = null) {
+fun AppNavigation(authCallbackUri: Uri? = null, marketplaceViewModel: MarketplaceViewModel) {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
     val marketplaceViewModel: MarketplaceViewModel = viewModel()
