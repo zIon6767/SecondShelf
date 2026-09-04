@@ -88,6 +88,14 @@ fun HomeScreen(
         }
     }
 
+    LaunchedEffect(userId) {
+        if (userId.isNotBlank()) {
+            viewModel.loadConversationsFromDb(userId)
+        }
+    }
+
+    val unreadChatCount = viewModel.conversations.sumOf { it.unreadCount }
+
     Scaffold(
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState) { data ->
@@ -146,6 +154,7 @@ fun HomeScreen(
         bottomBar = {
             SecondShelfBottomBar(
                 selectedTab = selectedTab,
+                unreadChatCount = unreadChatCount,
                 onTabSelected = { selectedTab = it },
                 onAddListingClick = onNavigateToCreateListing
             )
@@ -187,6 +196,7 @@ fun HomeScreen(
 @Composable
 private fun SecondShelfBottomBar(
     selectedTab: Int,
+    unreadChatCount: Int,
     onTabSelected: (Int) -> Unit,
     onAddListingClick: () -> Unit
 ) {
@@ -266,6 +276,7 @@ private fun SecondShelfBottomBar(
                 icon = if (selectedTab == 2) Icons.Filled.ChatBubble else Icons.Outlined.ChatBubbleOutline,
                 activeColor = activeColor,
                 inactiveColor = inactiveColor,
+                badgeCount = unreadChatCount,
                 onClick = { onTabSelected(2) }
             )
 
@@ -289,6 +300,7 @@ private fun SecondShelfNavItem(
     icon: ImageVector,
     activeColor: Color,
     inactiveColor: Color,
+    badgeCount: Int = 0,
     onClick: () -> Unit
 ) {
     val color = if (selected) activeColor else inactiveColor
@@ -300,12 +312,29 @@ private fun SecondShelfNavItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = color,
-            modifier = Modifier.size(24.dp)
-        )
+        BadgedBox(
+            badge = {
+                if (badgeCount > 0) {
+                    Badge(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = Color.White
+                    ) {
+                        Text(
+                            text = if (badgeCount > 99) "99+" else badgeCount.toString(),
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = color,
+                modifier = Modifier.size(24.dp)
+            )
+        }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
