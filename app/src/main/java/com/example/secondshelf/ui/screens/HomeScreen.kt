@@ -789,7 +789,6 @@ private fun ProfileTab(
     val myListings = viewModel.getMyListings()
     val savedCount = viewModel.getSavedListings().size
     var showLogoutDialog by remember { mutableStateOf(false) }
-    var showAddReviewDialog by remember { mutableStateOf(false) }
     var isReviewsExpanded by remember { mutableStateOf(true) }
     var isListingsExpanded by remember { mutableStateOf(true) }
     var isFaqSectionExpanded by remember { mutableStateOf(false) }
@@ -822,23 +821,6 @@ private fun ProfileTab(
             },
             dismissButton = { TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel") } },
             shape = RoundedCornerShape(16.dp)
-        )
-    }
-
-    if (showAddReviewDialog) {
-        ManualCreateReviewDialog(
-            onDismiss = { showAddReviewDialog = false },
-            onSubmit = { author, item, rating, comment, tags ->
-                viewModel.addReview(
-                    targetUserId = user.id.ifBlank { "user-current" },
-                    listingTitle = item,
-                    rating = rating,
-                    comment = comment,
-                    tags = tags,
-                    authorName = author
-                )
-                isReviewsExpanded = true
-            }
         )
     }
 
@@ -973,7 +955,7 @@ private fun ProfileTab(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            if (allUserReviews.isEmpty()) "No reviews yet • Tap + to create" else if (isReviewsExpanded) "Tap to collapse" else "Tap to view feedback",
+                            if (allUserReviews.isEmpty()) "No reviews yet" else if (isReviewsExpanded) "Tap to collapse" else "Tap to view feedback",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.secondary
                         )
@@ -989,17 +971,6 @@ private fun ProfileTab(
                             )
                             Spacer(Modifier.width(8.dp))
                         }
-                        FilledTonalButton(
-                            onClick = { showAddReviewDialog = true },
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.height(30.dp)
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Add", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(Modifier.width(6.dp))
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowDown,
                             contentDescription = if (isReviewsExpanded) "Collapse" else "Expand",
@@ -1039,21 +1010,12 @@ private fun ProfileTab(
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                     Text(
-                                        "Reviews will appear here after campus deals. You can also manually create reviews with '+ Add' above.",
+                                        "Reviews given by other students will appear here when you complete deals on Second Shelf.",
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.secondary,
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                                         modifier = Modifier.padding(top = 4.dp)
                                     )
-                                    Spacer(Modifier.height(10.dp))
-                                    OutlinedButton(
-                                        onClick = { showAddReviewDialog = true },
-                                        shape = RoundedCornerShape(8.dp)
-                                    ) {
-                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-                                        Spacer(Modifier.width(6.dp))
-                                        Text("Create First Review", fontSize = 12.sp)
-                                    }
                                 }
                             }
                         } else {
@@ -1088,18 +1050,6 @@ private fun ProfileTab(
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 repeat(review.rating) {
                                                     Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFB800), modifier = Modifier.size(14.dp))
-                                                }
-                                                Spacer(Modifier.width(4.dp))
-                                                IconButton(
-                                                    onClick = { viewModel.deleteReview(review.id) },
-                                                    modifier = Modifier.size(22.dp)
-                                                ) {
-                                                    Icon(
-                                                        Icons.Default.DeleteOutline,
-                                                        contentDescription = "Delete review",
-                                                        tint = MaterialTheme.colorScheme.secondary,
-                                                        modifier = Modifier.size(15.dp)
-                                                    )
                                                 }
                                             }
                                         }
