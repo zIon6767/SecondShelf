@@ -394,7 +394,10 @@ fun ConversationScreen(
                     transactionToken = activeQrToken ?: listing?.id ?: listingId,
                     itemName = listing?.title ?: "Campus Item",
                     price = if (listing != null) formatPrice(listing.price) else "RM 40",
-                    sellerName = uiState.participantName.ifBlank { resolvedSellerName }
+                    sellerName = viewModel.currentUser.name.ifBlank { "Seller" },
+                    onHandoffComplete = {
+                        viewModel.refreshMarketplace()
+                    }
                 )
             }
         }
