@@ -24,13 +24,13 @@ import com.example.secondshelf.ui.theme.StarGold
 import com.example.secondshelf.ui.theme.SuccessGreen
 
 @Composable
-fun HandoffSuccessScreen(
-    onRateTransaction: (Int) -> Unit, // Updated to pass the rating integer
+fun SuccessScreen(
+    onRateTransaction: (Int) -> Unit, //updated to pass the rating integer
     onBackToHome: () -> Unit,
     itemName: String = "Engineering Calculus Textbook",
     finalPrice: String = "RM 40"
 ) {
-    //State to track selected stars
+    //state to track selected stars
     var currentRating by remember { mutableIntStateOf(0) }
     val interactionSource = remember { MutableInteractionSource() }
 
@@ -113,7 +113,7 @@ fun HandoffSuccessScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            // -- NEW STAR RATING ROW --
+            //star rating row
             Row(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
@@ -129,7 +129,7 @@ fun HandoffSuccessScreen(
                             .padding(4.dp)
                             .clickable(
                                 interactionSource = interactionSource,
-                                indication = null // Hides the gray ripple effect
+                                indication = null //hides the gray effect
                             ) {
                                 currentRating = i
                             }
@@ -141,7 +141,7 @@ fun HandoffSuccessScreen(
 
             Button(
                 onClick = { onRateTransaction(currentRating) },
-                enabled = currentRating > 0, // Disables button until they select at least 1 star
+                enabled = currentRating > 0, //disables button until they select at least 1 star
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -183,7 +183,7 @@ fun HandoffSuccessScreen(
 @Preview(showBackground = true, name = "Handoff Success Screen")
 @Composable
 fun HandoffSuccessScreenPreview() {
-    HandoffSuccessScreen(
+    SuccessScreen(
         onRateTransaction = {},
         onBackToHome = {}
     )

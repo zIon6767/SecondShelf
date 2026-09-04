@@ -29,14 +29,11 @@ import com.example.secondshelf.utils.QrCodeUtils
 @Composable
 fun QrScreen(
     onNavigateBack: () -> Unit,
-    //mock data change laterr
-    itemName: String = "Engineering Calculus Textbook",
+    transactionToken: String,
+    itemName: String,
     price: String = "RM 40",
     sellerName: String = "Ahmad Faris"
 ) {
-    //mock transaction token, FETCH FROM BACKEND LATER
-    val transactionToken = "SECURE_HANDOFF_TOKEN_XYZ_123"
-
     //generates the QR bitmap once and remembers it
     val qrBitmap = remember(transactionToken) {
         QrCodeUtils.generateQrBitmap(transactionToken)
@@ -180,6 +177,7 @@ fun QrScreen(
     }
 }
 
+/*
 @Preview(showBackground = true, name = "Pickup Pass - Default")
 @Composable
 fun PickupPassScreenPreview() {
@@ -192,3 +190,4 @@ fun PickupPassScreenPreview() {
         )
     }
 }
+*/

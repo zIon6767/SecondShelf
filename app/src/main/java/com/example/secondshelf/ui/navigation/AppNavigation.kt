@@ -330,5 +330,53 @@ fun AppNavigation(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+
+        composable("scanner_route") {
+            //setup the ViewModel with your Supabase client
+            val repository = androidx.compose.runtime.remember {
+                com.example.secondshelf.data.TransactionRepository(com.example.secondshelf.supabase)
+            }
+            val transactionViewModel: com.example.secondshelf.ui.viewmodel.TransactionViewModel = viewModel(
+                factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                        return com.example.secondshelf.ui.viewmodel.TransactionViewModel(repository) as T
+                    }
+                }
+            )
+
+            //watch the state from the ViewModel
+            val scanState by transactionViewModel.scanState.collectAsState()
+
+            //listen for the success state to trigger navigation
+            LaunchedEffect(scanState) {
+                if (scanState is com.example.secondshelf.ui.viewmodel.ScanState.Success) {
+                    navController.navigate("handoff_success_route") {
+                        popUpTo("scanner_route") { inclusive = true }
+                    }
+                    transactionViewModel.resetScanState()
+                }
+            }
+
+            //pass the action into the screen
+            QrScannerScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onQrScanned = { scannedString ->
+                    // Use your existing AuthViewModel to get the ID!
+                    val currentUserId = authViewModel.getUserId()
+                    transactionViewModel.verifyQrCode(scannedString, currentUserId)
+                }
+            )
+        }
+
+        composable("handoff_success_route") {
+            SuccessScreen(
+                onRateTransaction = { rating ->},
+                onBackToHome = {
+                    navController.navigate("home"){
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+        }
     }
 }
