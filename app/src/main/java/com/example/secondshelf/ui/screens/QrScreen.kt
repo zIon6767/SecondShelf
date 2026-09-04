@@ -121,7 +121,9 @@ fun QrScreen(
                         Image(
                             bitmap = qrBitmap.asImageBitmap(),
                             contentDescription = "Transaction QR Code",
-                            modifier = Modifier.size(220.dp)
+                            modifier = Modifier
+                                .size(220.dp)
+                                .padding(8.dp)
                         )
                     } else {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {

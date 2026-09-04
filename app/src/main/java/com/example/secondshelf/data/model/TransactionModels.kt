@@ -5,9 +5,9 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class Transaction(
-    val id: String? = null, //nullable because Supabase generates this
+    val id: String? = null,
     @SerialName("listing_id") val listingId: String,
-    @SerialName("buyer_id") val buyerId: String,
+    @SerialName("buyer_id") val buyerId: String? = null,
     @SerialName("seller_id") val sellerId: String,
     @SerialName("qr_token") val qrToken: String,
     val status: String = "pending"

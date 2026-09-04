@@ -15,10 +15,11 @@ class QrAnalyzer(
 ) : ImageAnalysis.Analyzer {
 
     private val options = BarcodeScannerOptions.Builder()
-        .setBarcodeFormats(Barcode.FORMAT_QR_CODE, Barcode.FORMAT_ALL_FORMATS)
+        .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
         .build()
 
     private val scanner = BarcodeScanning.getClient(options)
+    private var lastScannedTime = 0L
 
     @OptIn(ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
@@ -31,8 +32,12 @@ class QrAnalyzer(
                     for (barcode in barcodes) {
                         val qrValue = barcode.rawValue ?: barcode.displayValue
                         if (!qrValue.isNullOrBlank()) {
-                            Log.d("QrAnalyzer", "Scanned QR Value: $qrValue")
-                            onQrCodeScanned(qrValue)
+                            val now = System.currentTimeMillis()
+                            if (now - lastScannedTime > 1500) {
+                                lastScannedTime = now
+                                Log.d("QrAnalyzer", "Scanned QR Value: $qrValue")
+                                onQrCodeScanned(qrValue)
+                            }
                             break
                         }
                     }

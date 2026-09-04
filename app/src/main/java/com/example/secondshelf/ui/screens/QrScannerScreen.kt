@@ -99,7 +99,14 @@ fun QrScannerScreen(
                                 it.setSurfaceProvider(previewView.surfaceProvider)
                             }
 
+                            val resolutionSelector = androidx.camera.core.resolutionselector.ResolutionSelector.Builder()
+                                .setAspectRatioStrategy(
+                                    androidx.camera.core.resolutionselector.AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY
+                                )
+                                .build()
+
                             val imageAnalysis = ImageAnalysis.Builder()
+                                .setResolutionSelector(resolutionSelector)
                                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                                 .build()
 

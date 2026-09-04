@@ -237,7 +237,7 @@ fun ListingDetailScreen(
                         if (isOwnListing) {
                             viewModel.createHandoffToken(
                                 listingId = listing.id,
-                                buyerId = viewModel.currentUser.id,
+                                buyerId = "",
                                 sellerId = listing.sellerId
                             ) { token ->
                                 qrPassToken = token
