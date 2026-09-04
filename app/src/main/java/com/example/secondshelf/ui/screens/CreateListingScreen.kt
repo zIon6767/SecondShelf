@@ -1,5 +1,8 @@
 package com.example.secondshelf.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,10 +24,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.example.secondshelf.ui.model.Category
 import com.example.secondshelf.ui.model.Condition
 import com.example.secondshelf.ui.viewmodel.MarketplaceViewModel
 import coil.compose.AsyncImage
+import java.io.ByteArrayOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +51,7 @@ fun CreateListingScreen(
     var error by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var capturedImage by remember { mutableStateOf<Bitmap?>(null) }
     var imageBytes by remember { mutableStateOf<ByteArray?>(null) }
     var imageExtension by remember { mutableStateOf("jpg") }
 
@@ -66,6 +72,7 @@ fun CreateListingScreen(
                 }
 
                 selectedImageUri = uri
+                capturedImage = null
                 imageBytes = bytes
                 imageExtension = extension
                 error = null
@@ -74,6 +81,41 @@ fun CreateListingScreen(
                 imageBytes = null
                 error = it.message ?: "Could not open the selected image"
             }
+        }
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        if (bitmap != null) {
+            runCatching {
+                val output = ByteArrayOutputStream()
+                require(bitmap.compress(Bitmap.CompressFormat.JPEG, 92, output)) {
+                    "Could not prepare the captured photo"
+                }
+                val bytes = output.toByteArray()
+                require(bytes.size <= 5 * 1024 * 1024) { "Image must not exceed 5 MB" }
+
+                capturedImage = bitmap
+                selectedImageUri = null
+                imageBytes = bytes
+                imageExtension = "jpg"
+                error = null
+            }.onFailure {
+                capturedImage = null
+                imageBytes = null
+                error = it.message ?: "Could not process the captured photo"
+            }
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            cameraLauncher.launch(null)
+        } else {
+            error = "Camera permission is required to take a photo"
         }
     }
 
@@ -115,7 +157,7 @@ fun CreateListingScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             FormField("Product Photo *") {
-                val previewModel: Any? = selectedImageUri ?: existing?.imageUrl
+                val previewModel: Any? = capturedImage ?: selectedImageUri ?: existing?.imageUrl
 
                 if (previewModel != null) {
                     Box(
@@ -134,10 +176,11 @@ fun CreateListingScreen(
                                     RoundedCornerShape(14.dp)
                                 )
                         )
-                        if (selectedImageUri != null) {
+                        if (selectedImageUri != null || capturedImage != null) {
                             IconButton(
                                 onClick = {
                                     selectedImageUri = null
+                                    capturedImage = null
                                     imageBytes = null
                                 },
                                 modifier = Modifier
@@ -155,14 +198,39 @@ fun CreateListingScreen(
                     Spacer(Modifier.height(8.dp))
                 }
 
-                OutlinedButton(
-                    onClick = { imagePicker.launch("image/*") },
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Icon(Icons.Default.AddPhotoAlternate, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (previewModel == null) "Choose Product Photo" else "Change Product Photo")
+                    OutlinedButton(
+                        onClick = { imagePicker.launch("image/*") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.PhotoLibrary, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Gallery")
+                    }
+                    Button(
+                        onClick = {
+                            if (
+                                ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.CAMERA
+                                ) == PackageManager.PERMISSION_GRANTED
+                            ) {
+                                cameraLauncher.launch(null)
+                            } else {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Take Photo")
+                    }
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
