@@ -13,6 +13,9 @@ create table if not exists public.transactions (
     completed_at timestamptz
 );
 
+alter table public.transactions
+    add column if not exists completed_at timestamptz;
+
 create unique index if not exists transactions_qr_token_idx
     on public.transactions (qr_token);
 
