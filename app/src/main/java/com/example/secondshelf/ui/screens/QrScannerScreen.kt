@@ -33,11 +33,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.secondshelf.ui.theme.PrimaryBlue
 import com.example.secondshelf.utils.QrAnalyzer
 import java.util.concurrent.Executors
 
 @Composable
-fun ScannerScreen(
+fun QrScannerScreen(
     onNavigateBack: () -> Unit,
     onQrScanned: (String) -> Unit
 ) {
@@ -217,7 +218,7 @@ fun ScannerScreen(
 @Preview(showBackground = true, name = "Scanner Screen")
 @Composable
 fun ScannerScreenPreview() {
-    ScannerScreen(
+    QrScannerScreen(
         onNavigateBack = {},
         onQrScanned = {}
     )

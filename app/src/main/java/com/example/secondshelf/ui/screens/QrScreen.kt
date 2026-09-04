@@ -21,14 +21,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.secondshelf.ui.theme.PrimaryBlue
 import com.example.secondshelf.ui.theme.SecondShelfTheme
 import com.example.secondshelf.utils.QrCodeUtils
 
-val PrimaryBlue = Color(0xFF007BFF)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PickupPassScreen(
+fun QrScreen(
     onNavigateBack: () -> Unit,
     //mock data change laterr
     itemName: String = "Engineering Calculus Textbook",
@@ -185,7 +184,7 @@ fun PickupPassScreen(
 @Composable
 fun PickupPassScreenPreview() {
     SecondShelfTheme {
-        PickupPassScreen(
+        QrScreen(
             onNavigateBack = {},
             itemName = "Engineering Calculus Textbook", //dummy data just for preview
             price = "RM 40",

@@ -19,9 +19,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-val SuccessGreen = Color(0xFF4CAF50)
-val StarGold = Color(0xFFFFC107)
+import com.example.secondshelf.ui.theme.PrimaryBlue
+import com.example.secondshelf.ui.theme.StarGold
+import com.example.secondshelf.ui.theme.SuccessGreen
 
 @Composable
 fun HandoffSuccessScreen(

@@ -19,6 +19,7 @@ val BorderGray = Color(0xFFE5E7EB)
 val SuccessGreen = Color(0xFF34C759)
 val WarningOrange = Color(0xFFFF9500)
 val DangerRed = Color(0xFFFF3B30)
+val StarGold = Color(0xFFFFC107)
 
 // Dark Theme Neutrals
 val AppBackgroundDark = Color(0xFF121212)
