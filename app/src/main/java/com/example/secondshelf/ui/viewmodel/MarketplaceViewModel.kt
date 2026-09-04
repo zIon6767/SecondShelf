@@ -338,6 +338,13 @@ class MarketplaceViewModel(
             result = result.filter { it.condition == cond }
         }
 
+        filters.minPrice?.let { minimum ->
+            result = result.filter { it.price >= minimum }
+        }
+        filters.maxPrice?.let { maximum ->
+            result = result.filter { it.price <= maximum }
+        }
+
         val rawQuery = filters.query.trim().lowercase()
         if (rawQuery.isNotEmpty()) {
             val queryTokens = rawQuery.split(Regex("\\s+")).filter { it.isNotEmpty() }
@@ -370,6 +377,7 @@ class MarketplaceViewModel(
                 else result.sortedByDescending { relevanceScore(it, rawQuery) }
             }
             SortOption.NEWEST -> result.sortedByDescending { it.createdAt }
+            SortOption.OLDEST -> result.sortedBy { it.createdAt }
         }
 
         return result
