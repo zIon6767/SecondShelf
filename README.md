@@ -1,6 +1,6 @@
 # Second Shelf
 
-A campus marketplace Android app where students can buy and sell used items like textbooks, electronics, stationery, lab equipment, and more.
+A campus marketplace Android app where students can buy and sell used items like textbooks, electronics, stationery, lab equipment, and more safely.
 
 Built with **Kotlin**, **Jetpack Compose**, and **Material 3**.
 
