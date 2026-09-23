@@ -82,6 +82,13 @@ app/src/main/java/com/example/secondshelf/
 
 Never commit `local.properties` — it is git-ignored.
 
+# Contributors
+This project was a collaborative effort by the following members:
+* **(fill in): Oh Chu Meng [GitHub](https://github.com/MengsChill)**
+* **(fill in): Yeoh Ming Xuan [GitHub](https://github.com/)**
+* **(fill in): Low Jia Horng [GitHub](https://github.com/)**
+* * **QR code integration & Testing: Choong Jun Zac [GitHub](https://github.com/ishtardsama), [Email](choongjunzac@gmail.com)**
+
 ## License
 
 Private project.
